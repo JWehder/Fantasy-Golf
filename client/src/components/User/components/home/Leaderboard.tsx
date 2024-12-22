@@ -27,7 +27,7 @@ export default function Leaderboard() {
                 <>
                     <span className='inline-flex items-center'>
                         <BackButton 
-                            size="8" 
+                            size={8}
                             color={"stroke-light"} 
                             handleBackClick={() => setSelectedTournament(null)}
                         />

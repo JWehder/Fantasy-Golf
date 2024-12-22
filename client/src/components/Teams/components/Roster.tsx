@@ -48,7 +48,7 @@ export default function Roster({
                         {/* Back Button */}
                         <span className='inline-flex items-center'>
                             <BackButton 
-                                size="8" 
+                                size={8}
                                 color={"stroke-light"} 
                                 handleBackClick={() => handleBackButtonClick()}
                             />

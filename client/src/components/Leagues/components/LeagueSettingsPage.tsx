@@ -239,7 +239,7 @@ const LeagueSettingsPage: React.FC = () => {
       <div className="flex flex-row items-center p-4 w-full">
         <div className="flex justify-start w-1/3">
           <BackButton
-            size="8"
+            size={8}
             color="stroke-light"
             handleBackClick={() => navigate(`/leagues/${leagueId}`)}
           />
@@ -402,7 +402,7 @@ const LeagueSettingsPage: React.FC = () => {
                 <>
                     <span className="inline-flex items-center">
                     <BackButton
-                        size="8"
+                        size={8}
                         color="stroke-light"
                         handleBackClick={() => setSelectedTournament(null)}
                     />

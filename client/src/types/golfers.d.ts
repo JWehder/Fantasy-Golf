@@ -1,5 +1,5 @@
 export interface Golfer {
-    id?: string;  // String instead of ObjectId since it comes from API
+    id: string;  // String instead of ObjectId since it comes from API
     Rank?: number;
     FirstName: string;
     LastName: string;

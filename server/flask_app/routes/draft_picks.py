@@ -13,14 +13,17 @@ draft_picks_collection = db.draftPicks
 
 draft_picks_bp = Blueprint('draft_picks', __name__) 
 
-@draft_picks_bp.route('/draft_picks/drafts/<draft_id>', methods=['GET'])
+@draft_picks_bp.route('/drafts/<draft_id>', methods=['GET'])
 def get_draft_picks(draft_id):
     """Lists all draft picks by draft ID"""
     draft_picks_data = list(draft_picks_collection.find_one({"_id": ObjectId(draft_id)}))
     if draft_picks_data:
         draft_picks = []
         for draft_pick in draft_picks_data:
-            draft_pick = DraftPick(**draft_picks_data)
+            draft_pick_dict = DraftPick(**draft_picks_data).to_dict()
+
+            draft_pick_dict["Golfer"] = db.golfers.find_one({"_id": ObjectId(draft_pick_dict["GolferId"])})
+
             draft_picks.append(draft_pick)
         return jsonify({
             draft_picks

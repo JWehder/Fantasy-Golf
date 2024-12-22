@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import TableRow from "../../Utils/components/TableRow";
+import TableRow from "../Utils/components/TableRow";
+import Golfers from "../Golfers/components/Golfers";
+import { LeagueSettings } from "../../types/leagueSettings";
 
 type Golfer = {
   id: string;
@@ -15,12 +17,7 @@ type DraftingConsoleProps = {
   draftPicks: Record<string, Golfer[]>;
   timeRemaining: number; // in seconds
   onDraft: (golfer: Golfer) => void;
-  leagueSettings: {
-    SnakeDraft: boolean;
-    MaxGolfersPerTeam: number;
-    NumberOfTeams: number;
-    SecondsPerDraftPick: number;
-  };
+  leagueSettings: LeagueSettings;
 };
 
 const DraftingConsole: React.FC<DraftingConsoleProps> = ({
@@ -85,18 +82,7 @@ const DraftingConsole: React.FC<DraftingConsoleProps> = ({
         <div className="flex-1 bg-middle p-4 rounded-md shadow-lg">
           <h2 className="text-lg font-semibold mb-3">Available Golfers</h2>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {availableGolfers.map((golfer) => (
-              <TableRow
-                key={golfer.id}
-                firstTwoDatapoints={[golfer.rank.toString(), golfer.name]}
-                data={{
-                  Points: golfer.points,
-                }}
-                columns={new Set(["Points"])}
-                onClick={() => onDraft(golfer)}
-                brightness="hover:bg-light hover:text-dark"
-              />
-            ))}
+              <Golfers />
           </div>
         </div>
 

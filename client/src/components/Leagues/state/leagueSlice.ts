@@ -81,7 +81,6 @@ export const createLeague = createAsyncThunk<
   }
 );
 
-
 interface LeagueState {
     status: string;
     leagues: League[];

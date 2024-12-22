@@ -1,6 +1,4 @@
 import React from 'react';
-import { useFetchUpcomingPeriods } from '../../../hooks/periods';
-import { useParams } from 'react-router-dom';
 import { Event } from '../../../types/events';
 import { FaCalendarAlt, FaMapMarkerAlt, FaFlagCheckered } from 'react-icons/fa';
 import { format, parseISO } from 'date-fns';

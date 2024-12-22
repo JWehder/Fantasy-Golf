@@ -11,25 +11,37 @@ from models import Draft
 drafts_collection = db.holes
 drafts_bp = Blueprint('leagues_settings', __name__)
 
-
-@drafts_bp.route('/drafts/<league_id>', methods=['GET'])
-def get_drafts(league_id):
-    """Lists all drafts by ID"""
-    draft_data = list(drafts_collection.find_one({"_id": ObjectId(league_id)}))
-    if draft_data:
-        draft = Draft(**draft_data)
-        return jsonify({
-            draft
-        })
-    return abort(404, description="No drafts were found for this league.")
-
 @drafts_bp.route('/drafts/<draft_id>', methods=['GET'])
 def get_draft(draft_id):
-    """Fetches a draft by its ID"""
-    draft_data = drafts_collection.find_one({"_id": ObjectId(draft_id)})
-    if draft_data:
-        hole = Draft(**draft_data)
-        return jsonify({
-            hole
-        })
-    return abort(404, description="Draft not found")
+    from models import DraftPick, Golfer
+    from bson.errors import InvalidId
+
+    try:
+        draft_id = ObjectId(draft_id)
+    except InvalidId:
+        return jsonify({"error": "Invalid draft ID", "status": 400}), 400
+
+    draft_data = drafts_collection.find_one({"_id": draft_id})
+    if not draft_data:
+        return jsonify({"error": "Draft not found", "status": 404}), 404
+
+    draft_dict = Draft(**draft_data).to_dict()
+
+    if draft_dict.get("DraftPicks"):
+        draft_picks = list(
+            db.draftPicks.find({"DraftId": draft_id})
+            .sort([("RoundNumber", 1), ("PickNumber", 1)])
+        )
+        draft_dict["DraftPicks"] = [DraftPick(**pick).to_dict() for pick in draft_picks]
+        draft_dict["DraftOrder"] = [pick["TeamId"] for pick in draft_dict["DraftPicks"]]
+
+        golfer_ids = [pick["GolferId"] for pick in draft_picks]
+        golfers = {
+            golfer["_id"]: Golfer(**golfer).to_dict()
+            for golfer in db.golfer.find({"_id": {"$in": golfer_ids}})
+        }
+
+        for pick in draft_dict["DraftPicks"]:
+            pick["Golfer"] = golfers.get(pick["GolferId"], None)
+
+    return jsonify(draft_dict), 200

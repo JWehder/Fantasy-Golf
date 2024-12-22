@@ -44,7 +44,7 @@ export default function LeagueDashboard() {
     };
 
     useEffect(() => {
-        if (leagueId) {
+        if (leagueId && !leagueTeams) {
             dispatch(getLeague(leagueId))
         };
 
@@ -68,7 +68,7 @@ export default function LeagueDashboard() {
         isFetchingNextPage,
         isError,
         error,
-      } = useFetchUpcomingPeriods(leagueId!);
+    } = useFetchUpcomingPeriods(leagueId!);
 
     return (
         <div className='flex justify-center items-center w-full flex-col min-w-[950px] bg-dark'>
@@ -82,12 +82,12 @@ export default function LeagueDashboard() {
 
                     <div className='flex justify-center items-center flex-row'>
                         <BackButton 
-                        size="4" 
+                        size={4}
                         color={"stroke-light"} 
                         handleBackClick={() => console.log("Clicked me")}
                         />
                         <NextButton 
-                        size="4" 
+                        size={4}
                         color={"stroke-light"} 
                         handleNextClick={() => console.log("Clicked me")}
                         />

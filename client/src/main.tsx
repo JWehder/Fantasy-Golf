@@ -12,8 +12,7 @@ import LeagueDashboard from './components/Leagues/components/LeagueDashboard.js'
 import ErrorPage from './components/Utils/components/ErrorPage.jsx';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LeagueSettingsPage from './components/Leagues/components/LeagueSettingsPage';
-import { UseDispatch } from 'react-redux';
-import { updateLeagueSettings } from './components/Leagues/state/leagueSlice';
+import DraftPage from './components/Drafts/DraftPage';
 
 // import { ApolloServer } from '@apollo/server';
 // import { startStandaloneServer } from '@apollo/server/standalone';
@@ -55,6 +54,10 @@ const router = createBrowserRouter([
           {
             path: "/leagues/:leagueId/settings",
             element: <LeagueSettingsPage />,
+          },
+          {
+            path: "/leagues/:leagueId/drafts/:draftId",
+            element: <DraftPage />,
           }
       ]
       },
