@@ -50,37 +50,39 @@ class DraftPick(Base):
         
         return self.id
 
-    @root_validator(pre=True)
-    def run_validations(cls, values):
-        # Use the raw values dictionary for validation purposes
-        league_settings = db.leagueSettings.find_one({"LeagueId": values['LeagueId']})
-        if not league_settings:
-            raise ValueError("League settings not found")
+    # @root_validator(pre=True)
+    # def run_validations(cls, values):
+    #     pass
+    #     # Use the raw values dictionary for validation purposes
+    #     league_settings = db.leagueSettings.find_one({"LeagueId": values['LeagueId']})
+    #     if not league_settings:
+    #         raise ValueError("League settings not found")
 
-        team_golfers_count = db.golfers.count_documents({"TeamId": values['TeamId']})
-        if team_golfers_count >= league_settings['MaxGolfersPerTeam']:
-            raise ValueError("Team already has the maximum number of golfers allowed")
+    #     team_golfers_count = db.golfers.count_documents({"TeamId": values['TeamId']})
+    #     if team_golfers_count >= league_settings['MaxGolfersPerTeam']:
+    #         raise ValueError("Team already has the maximum number of golfers allowed")
 
-        draft = db.drafts.find_one({"LeagueId": values['LeagueId']})
-        if not draft:
-            raise ValueError("Draft not found")
+    #     draft = db.drafts.find_one({"_id": values['DraftId']})
+    #     if not draft:
+    #         raise ValueError("Draft not found")
 
-        current_time = datetime.now()
-        draft_start_time = draft['StartDate']
-        pick_duration = draft.get('TimeToDraft', 7200)
-        picks_per_round = len(draft['Picks']) / draft['Rounds']
-        expected_pick_time = draft_start_time + timedelta(
-            seconds=(values['RoundNumber'] - 1) * picks_per_round * pick_duration +
-                    (values['PickNumber'] - 1) * pick_duration
-        )
+    #     current_time = datetime.now()
+    #     draft_start_time = draft['StartDate']
+    #     pick_duration = draft.get('TimeToDraft', 7200)
+    #     draft_picks_count = db.draftPicks.count_documents({ "DraftId": values['DraftId'] })
+    #     picks_per_round = draft_picks_count / draft['Rounds']
+    #     expected_pick_time = draft_start_time + timedelta(
+    #         seconds=(values['RoundNumber'] - 1) * picks_per_round * pick_duration +
+    #                 (values['PickNumber'] - 1) * pick_duration
+    #     )
 
-        if current_time < draft_start_time or current_time > expected_pick_time + timedelta(seconds=pick_duration):
-            raise ValueError("Pick is not within the allowed time period")
+    #     if current_time < draft_start_time or current_time > expected_pick_time + timedelta(seconds=pick_duration):
+    #         raise ValueError("Pick is not within the allowed time period")
 
-        if len(draft['Picks']) >= values['PickNumber'] + (values['RoundNumber'] - 1) * picks_per_round:
-            raise ValueError("Invalid pick order")
+    #     if len(draft['Picks']) >= values['PickNumber'] + (values['RoundNumber'] - 1) * picks_per_round:
+    #         raise ValueError("Invalid pick order")
 
-        return values
+    #     return values
 
     @field_validator('RoundNumber', 'PickNumber')
     def pick_must_be_positive(cls, v):

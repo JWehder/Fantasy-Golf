@@ -44,9 +44,12 @@ export default function Golfers() {
         dispatch(setSelectedGolfer(golfer));
     };
 
+    const onAddClick = (golferId: string) => {
+        console.log(golferId);
+    }
+
     return (
         <div className="w-full h-full overflow-auto text-light font-PTSans break-all bg-middle p-2">
-
             <div>
                 <TableHeaders headers={headers} />
             </div>
@@ -55,12 +58,23 @@ export default function Golfers() {
                 key={pageIndex + (page.nextPage || 0)}
                 >
                     {page.golfers.map((golfer, idx) => (
+                        <div>
                         <PlayerData
                             key={golfer.id}
                             even={idx % 2 == 0}
                             player={golfer}
                             onClick={() => handleGolferClick(golfer)}
                         />
+                        <button 
+                        className="bg-transparent text-middle p-2 rounded-full border-2 border-middle text-center" 
+                        onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the parent row's onClick
+                            onAddClick(golfer.id);
+                        }}
+                        >
+                            +
+                        </button>
+                        </div>
                     ))}
                 </div>
             ))}

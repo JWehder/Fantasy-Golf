@@ -8,6 +8,7 @@ export interface DraftDetailsResponse {
 
 const fetchDraftData = async (draftId: string) => {
     const response = await axios.get(`/api/drafts/${draftId}`);
+    console.log(response.data)
     return response.data;
 };
 

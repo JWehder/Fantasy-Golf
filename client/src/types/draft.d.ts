@@ -9,6 +9,7 @@ export interface Draft {
     PeriodId: string;
     DraftPicks: Array[DraftPick]
     DraftOrder: Array[string];
+    IsComplete: boolean;
     created_at: Date
     updated_at: Date
 }

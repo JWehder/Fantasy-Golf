@@ -21,8 +21,8 @@ class Draft(Base):
     EndDate: Optional[datetime] = None
     Rounds: int
     PeriodId: PyObjectId
-    DraftPicks: Optional[List[PyObjectId]]
     DraftOrder: Optional[List[PyObjectId]]
+    IsComplete: bool
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

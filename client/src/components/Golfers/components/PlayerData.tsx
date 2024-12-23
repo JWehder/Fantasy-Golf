@@ -18,7 +18,6 @@ export default function PlayerData({
     const brightness = even ? 'brightness-125' : '';
     const space = even ? 'my-2' : '';
 
-
     const desiredKeys: (keyof Golfer)[]= ["AvgScore", "Top10s", "Wins", "Cuts", "FedexPts"]
 
     return (

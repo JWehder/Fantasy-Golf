@@ -6,29 +6,29 @@ import NextButton from '../../../Utils/components/NextButton';
 
 export default function GamesCarousel() {
 
-    const games = [
-        {
-            gameName: "Stroke Play",
-            desc: "In this game mode, golfers accumulate points as a team. Your objective to win is having the team with the score furthest below par combined.",
-            minNumOfPlayers: 4,
-            maxNumOfPlayers: 32,
-            img: golfLinks
-        },
-        {
-            gameName: "Best Ball",
-            desc: "In this game mode, golfers accumulate points as a team. Your objective to win is having the team with the score furthest below par combined.",
-            minNumOfPlayers: 4,
-            maxNumOfPlayers: 32,
-            img: golfLinks
-        },
-        {
-            gameName: "Head to Head",
-            desc: "In this game mode, golfers accumulate points as a team. Your objective to win is having the team with the score furthest below par combined.",
-            minNumOfPlayers: 4,
-            maxNumOfPlayers: 32,
-            img: golfLinks
-        },
-    ];
+    // const games = [
+    //     {
+    //         gameName: "Stroke Play",
+    //         desc: "In this game mode, golfers accumulate points as a team. Your objective to win is having the team with the score furthest below par combined.",
+    //         minNumOfPlayers: 4,
+    //         maxNumOfPlayers: 32,
+    //         img: golfLinks
+    //     },
+    //     {
+    //         gameName: "Best Ball",
+    //         desc: "In this game mode, golfers accumulate points as a team. Your objective to win is having the team with the score furthest below par combined.",
+    //         minNumOfPlayers: 4,
+    //         maxNumOfPlayers: 32,
+    //         img: golfLinks
+    //     },
+    //     {
+    //         gameName: "Head to Head",
+    //         desc: "In this game mode, golfers accumulate points as a team. Your objective to win is having the team with the score furthest below par combined.",
+    //         minNumOfPlayers: 4,
+    //         maxNumOfPlayers: 32,
+    //         img: golfLinks
+    //     },
+    // ];
 
     const scrollContainer = useRef(null);
 

@@ -14,7 +14,7 @@ const DraftPage = () => {
     const { leagueId, draftId } = useParams<{ leagueId: string; draftId: string }>();
     const dispatch = useDispatch<AppDispatch>();
     const [isLoading, setIsLoading] = useState(true);
-  
+
     const league = useSelector((state: RootState) => state.leagues.selectedLeague);
   
     useEffect(() => {
@@ -28,12 +28,6 @@ const DraftPage = () => {
       loadData();
     }, [leagueId, draftId, league, dispatch]);
 
-    const [isDraftOver, setIsDraftOver] = useState(false);
-
-    const handleDraftComplete = () => {
-        setIsDraftOver(true);
-    };
-
     if (!draftId || !leagueId) {
         return <ErrorPage message="We do not recognize the draft or league you are looking for." />
     };
@@ -44,13 +38,13 @@ const DraftPage = () => {
         error,
     } = useFetchDraftData(draftId!)
     
-    if (!data || isLoading) {
+    if (!data || isLoading || !league) {
         return <LoadingScreen />
     };
 
     return (
         <div>
-        {isDraftOver ? (
+        {data.draft.IsComplete ? (
             <DraftResults
             draftPicks={data.draft.DraftPicks}
             draftOrder={data.draft.DraftOrder}
@@ -58,13 +52,15 @@ const DraftPage = () => {
             rounds={data.draft.Rounds}
             />
         ) : (
-            <DraftingConsole
-            currentTeam={}
-            draftOrder={}
-            draftPicks={}
-            onDraft={}
-            leagueSettings={league!.LeagueSettings}
-            />
+            // <DraftingConsole
+            // currentTeam={}
+            // draftOrder={}
+            // draftPicks={}
+            // onDraft={}
+            // leagueSettings={league!.LeagueSettings}
+            // />
+            <>
+            </>
         )}
         <>
            {isError && <ErrorPage message={error.message} />}
