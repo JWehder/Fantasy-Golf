@@ -1,11 +1,11 @@
 import { useDispatch } from 'react-redux';
-import { Tournament } from '../../../../types/tournaments';
-import Switch from '../../../Utils/components/Switch';
+import { Tournament } from '../../../types/tournaments';
+import Switch from '../../Utils/components/Switch';
 import React, { useState } from 'react';
-import { getLeaguesGolferDetails } from '../../../Golfers/state/golferSlice';
-import { AppDispatch, RootState } from '../../../../store';
+import { getLeaguesGolferDetails } from '../../Golfers/state/golferSlice';
+import { AppDispatch, RootState } from '../../../store';
 import { useParams } from 'react-router-dom';
-import { resetLeaguesGolfersTournamentDetailsIds } from '../../../Golfers/state/golferSlice';
+import { resetLeaguesGolfersTournamentDetailsIds } from '../../Golfers/state/golferSlice';
 
 export default function Tourney({ tournament } : { tournament: Tournament }) {
 
@@ -33,9 +33,9 @@ export default function Tourney({ tournament } : { tournament: Tournament }) {
 
     return (
         <div>
-            <div className='flex-row h-16 w-11/12 mb-16 pl-14 flex text-light font-PTSans'>
+            <div className='flex-row h-16 w-11/12 mb-16 flex text-light font-PTSans'>
                 <div className="flex-1 items-center pb-2">   
-                    <h1 className='text-3xl'>
+                    <h1 className='text-3xl font-bold'>
                         {tournament.Name}
                     </h1>
                     <div className="mt-2">

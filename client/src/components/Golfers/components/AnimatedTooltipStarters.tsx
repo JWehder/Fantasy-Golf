@@ -89,7 +89,7 @@ const AnimatedTooltipStarters: React.FC<AnimatedTooltipStartersProps> = ({ playe
                     <div className="font-bold text-light relative z-30 text-base">
                       {`${player.FirstName} ${player.LastName}`}
                     </div>
-                    <div className="text-light text-xs">{player.Rank}</div>
+                    <div className="text-light text-xs">Rank: {player.Rank}</div>
                   </motion.div>
                 </Portal>
               )}

@@ -7,5 +7,7 @@ export interface Event {
     TournamentVenue: string,
     TournamentLocation: string,
     TournamentStartDate: string,
-    TournamentEndDate: string
+    TournamentEndDate: string,
+    TournamentId: string,
+    DraftId:string
 }

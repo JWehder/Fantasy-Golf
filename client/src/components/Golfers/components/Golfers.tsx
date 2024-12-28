@@ -58,7 +58,7 @@ export default function Golfers() {
                 key={pageIndex + (page.nextPage || 0)}
                 >
                     {page.golfers.map((golfer, idx) => (
-                        <div>
+                        <div className="flex gap-2">
                         <PlayerData
                             key={golfer.id}
                             even={idx % 2 == 0}
@@ -66,7 +66,7 @@ export default function Golfers() {
                             onClick={() => handleGolferClick(golfer)}
                         />
                         <button 
-                        className="bg-transparent text-middle p-2 rounded-full border-2 border-middle text-center" 
+                        className="bg-transparent text-dark p-2 rounded-full border-2 border-dark text-center hover:bg-light" 
                         onClick={(e) => {
                             e.stopPropagation(); // Prevent triggering the parent row's onClick
                             onAddClick(golfer.id);

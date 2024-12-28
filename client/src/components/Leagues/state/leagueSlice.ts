@@ -84,9 +84,10 @@ export const createLeague = createAsyncThunk<
 interface LeagueState {
     status: string;
     leagues: League[];
-    selectedLeague: League | null
-    leagueError: string | null
-    leagueSettingsError: string | null
+    selectedLeague: League | null;
+    leagueError: string | null;
+    leagueSettingsError: string | null;
+    activeComponent: string;
 }
 
 const initialState: LeagueState = {
@@ -94,7 +95,8 @@ const initialState: LeagueState = {
     leagues: [],
     selectedLeague: null,
     leagueError: null,
-    leagueSettingsError: null
+    leagueSettingsError: null,
+    activeComponent: "Schedule"
 };
 
 const leagueSlice = createSlice({
@@ -106,6 +108,9 @@ const leagueSlice = createSlice({
         },
         clearSelectedLeague(state) {
             state.selectedLeague = null;
+        },
+        setActiveComponent(state, action) {
+            state.activeComponent = action.payload;
         }
     },
     extraReducers: builder => {
@@ -148,6 +153,6 @@ const leagueSlice = createSlice({
     }
 });
 
-export const { setLeagues } = leagueSlice.actions;
+export const { setLeagues, setActiveComponent } = leagueSlice.actions;
 
 export default leagueSlice.reducer;

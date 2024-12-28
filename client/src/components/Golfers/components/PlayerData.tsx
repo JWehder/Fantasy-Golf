@@ -19,7 +19,7 @@ export default function PlayerData({
     const space = even ? 'my-2' : '';
 
     const desiredKeys: (keyof Golfer)[]= ["AvgScore", "Top10s", "Wins", "Cuts", "FedexPts"]
-
+    
     return (
         <div 
         className={`w-full flex bg-middle h-auto justify-center items-center 
@@ -30,7 +30,7 @@ export default function PlayerData({
         >
             <div className="text-center flex w-1/2 items-center">
                 <div className="w-1/6">
-                    {player.Rank}
+                    {player.Rank || "NA"}
                 </div>
                 <div className="w-5/6 text-left flex items-center pl-6 group-hover/team:translate-x-2 transition duration-200">
                     <div className="flex-1 flex">

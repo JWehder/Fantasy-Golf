@@ -3,8 +3,6 @@ import axios, { Axios, AxiosResponse } from "axios";
 import { UsersData } from "../../../types/users";
 import { setLeagues } from "../../Leagues/state/leagueSlice";
 import { setTeams } from "../../Teams/state/teamsSlice"
-import { Team } from "../../../types/teams";
-import { League } from "../../../types/leagues";
 
 interface ErrorPayload {
     error: string;

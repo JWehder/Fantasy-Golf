@@ -26,35 +26,14 @@ def get_tournaments(pro_season_id):
 @tournaments_bp.route('/<tournament_id>', methods=['GET'])
 def get_tournament_by_id(tournament_id):
     """Fetches a tournament by ID"""
-    tournament_data = tournaments_collection.aggregate(
-    [
-        {
-            "$match": {
-                "_id": ObjectId(tournament_id)
-            }
-        },
-        {
-            "$lookup": {
-                "from": "golfertournamentdetails",
-                "localField": "_id",
-                "foreignField": "TournamentId",
-                "as": "GolferTournamentDetails"
-            }
-        },
-        {
-            "$set": {
-                "GolferTournamentDetails": {
-                    "$sortArray": {
-                        "input": "$GolferTournamentDetails",
-                        "sortBy": { "Position": 1 }  # Sorting the golfer details array by Position
-                    }
-                }
-            }
-        }
-    ])
+    tournament_data = tournaments_collection.find_one({
+        "_id": ObjectId(tournament_id)
+    })
+
+    tournament_data = Tournament(**tournament_data).to_dict()
     if tournament_data:
         return jsonify({
-            tournament_data
+            "tournament": tournament_data
         })
     return abort(404, description="The tournament that you requested could not be found. Please review your query value and try again.")
 

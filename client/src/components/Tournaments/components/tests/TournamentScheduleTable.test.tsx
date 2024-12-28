@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import TournamentScheduleTable from '../TournamentScheduleTable';
 import '@testing-library/jest-dom';
-import { Tournament } from '../../../../../types/tournaments';
+import { Tournament } from '../../../../types/tournaments';
 
 // Mock dependencies
 jest.mock('./useSettings', () => ({

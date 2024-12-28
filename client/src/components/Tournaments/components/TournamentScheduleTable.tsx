@@ -1,19 +1,20 @@
 import React from "react";
-import TableRow from "../../../Utils/components/TableRow";
-import { Tournament } from "../../../../types/tournaments";
-import TableHeaders from "../../../Utils/components/TableHeaders";
-import { useSettings } from "../../../Leagues/settingsContext";
+import TableRow from "../../Utils/components/TableRow";
+import { Tournament } from "../../../types/tournaments";
+import TableHeaders from "../../Utils/components/TableHeaders";
+import { useSettings } from "../../Leagues/settingsContext";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "../../../store";
+import { setSelectedTournament } from "../state/tournamentsSlice";
 
 interface TournamentScheduleTableProps {
-    setSelectedTournament: (selectedTournament: Tournament) => void;
     tournaments: Tournament[];
-    
 }
 
 export default function TournamentScheduleTable({
-    setSelectedTournament,
     tournaments
 }: TournamentScheduleTableProps) {
+    const dispatch = useDispatch<AppDispatch>();
 
     const { settings, disabled, handleCheckboxChange, selectedTournaments } = useSettings();
 
@@ -69,7 +70,7 @@ export default function TournamentScheduleTable({
                             data={tournament}
                             columns={desiredKeysSet}
                             brightness={idx % 2 === 0 ? "brightness-125" : ""}
-                            onClick={() => setSelectedTournament(tournament)}
+                            onClick={() => dispatch(setSelectedTournament(tournament))}
                             disabled={false}
                         />
                     </div>

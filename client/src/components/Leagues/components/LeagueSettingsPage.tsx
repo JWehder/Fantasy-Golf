@@ -4,11 +4,11 @@ import { AppDispatch, RootState } from "../../../store";
 import { getLeague, updateLeagueSettings } from "../state/leagueSlice";
 import { useParams, useNavigate } from "react-router-dom";
 import { LeagueSettings } from "../../../types/leagueSettings";
-import TournamentScheduleTable from "../../User/components/home/TournamentScheduleTable";
+import TournamentScheduleTable from "../../Tournaments/components/TournamentScheduleTable";
 import { Tournament } from "../../../types/tournaments";
-import Tourney from "../../User/components/home/Tourney";
+import Tourney from "../../Tournaments/components/Tourney";
 import BackButton from "../../Utils/components/BackButton";
-import GolferTournamentDetailsTable from "../../Golfers/components/GolferTournamentDetailsTable";
+import GolferTournamentDetailsTable from "../../Tournaments/components/GolferTournamentDetailsTable";
 import { SettingsProvider } from "../settingsContext";
 import LoadingScreen from "../../Utils/components/LoadingScreen";
 import axios from "axios";
@@ -419,7 +419,6 @@ const LeagueSettingsPage: React.FC = () => {
                     <SettingsProvider>
                         { !isEditMode ?
                           <TournamentScheduleTable
-                          setSelectedTournament={setSelectedTournament}
                           tournaments={tournaments as Tournament[]}
                           />
                           :
@@ -440,7 +439,6 @@ const LeagueSettingsPage: React.FC = () => {
                                 past fantasy league events
                               </h1>
                               <TournamentScheduleTable 
-                              setSelectedTournament={setSelectedTournament}
                               tournaments={tournaments?.pastFantasyLeagueTournaments}
                               />
                             </>
@@ -458,7 +456,6 @@ const LeagueSettingsPage: React.FC = () => {
                               </h1>
                               
                               <TournamentScheduleTable 
-                              setSelectedTournament={setSelectedTournament}
                               tournaments={tournaments?.upcomingFantasyLeagueTournaments}
                               />
                             </>
@@ -475,7 +472,6 @@ const LeagueSettingsPage: React.FC = () => {
                                 upcoming pro events
                               </h1>
                               <TournamentScheduleTable 
-                              setSelectedTournament={setSelectedTournament}
                               tournaments={tournaments?.upcomingProSeasonTournaments}
                               />
                             </>

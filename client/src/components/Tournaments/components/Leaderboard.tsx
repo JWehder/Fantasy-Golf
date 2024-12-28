@@ -1,19 +1,19 @@
 import Tourney from "./Tourney";
-import React, { useState } from "react";
-import GolferTournamentDetailsTable from "../../../Golfers/components/GolferTournamentDetailsTable";
+import React from "react";
+import GolferTournamentDetailsTable from "./GolferTournamentDetailsTable";
 import TournamentScheduleTable from "./TournamentScheduleTable";
-import { Tournament } from "../../../../types/tournaments";
-import BackButton from "../../../Utils/components/BackButton";
-import { useSelector } from "react-redux";
-import { RootState } from "../../../../store";
-import { useFetchTournamentDetails } from "../../../../hooks/tournaments"
-import SkeletonTable from "../../../Utils/components/SkeletonTable";
+import BackButton from "../../Utils/components/BackButton";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../../../store";
+import { useFetchTournamentDetails } from "../../../hooks/tournaments"
+import SkeletonTable from "../../Utils/components/SkeletonTable";
+import { setSelectedTournament } from "../state/tournamentsSlice";
 
 export default function Leaderboard() {
-
-    const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+    const dispatch = useDispatch<AppDispatch>();
 
     const fantasyLeagueSeasonId = useSelector((state: RootState) => state.leagues.selectedLeague?.CurrentFantasyLeagueSeasonId)
+    const selectedTournament = useSelector((state: RootState) => state.tournaments.selectedTournament);
 
     const { data,
         isFetching,
@@ -29,7 +29,7 @@ export default function Leaderboard() {
                         <BackButton 
                             size={8}
                             color={"stroke-light"} 
-                            handleBackClick={() => setSelectedTournament(null)}
+                            handleBackClick={() => dispatch(setSelectedTournament(null))}
                         />
                     </span>
                     <Tourney 
@@ -46,7 +46,6 @@ export default function Leaderboard() {
                     {isFetching && !isSuccess && !data?.tournaments?.length && <SkeletonTable />}
                     { isSuccess && 
                     <TournamentScheduleTable 
-                    setSelectedTournament={setSelectedTournament!}
                     tournaments={data?.tournaments!}
                     />
                     }

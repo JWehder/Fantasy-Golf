@@ -30,6 +30,8 @@ def get_draft(draft_id):
         .sort([("RoundNumber", 1), ("PickNumber", 1)])
     )
 
+    print(draft_picks)
+
     if draft_picks:
         draft_dict = Draft(**draft_data).to_dict()
 
@@ -45,8 +47,8 @@ def get_draft(draft_id):
 
         golfer_ids = [pick["GolferId"] for pick in draft_picks]
         golfers = {
-            golfer["_id"]: Golfer(**golfer).to_dict()
-            for golfer in db.golfer.find({"_id": {"$in": golfer_ids}})
+            str(golfer["_id"]): Golfer(**golfer).to_dict()
+            for golfer in db.golfers.find({"_id": {"$in": golfer_ids}})
         }
 
         for pick in draft_dict["DraftPicks"]:

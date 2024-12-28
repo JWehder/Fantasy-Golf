@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import Roster from '../../Teams/components/Roster';
 import { useState } from 'react';
-import Leaderboard from '../../User/components/home/Leaderboard';
+import Leaderboard from '../../Tournaments/components/Leaderboard';
 import Golfers from '../../Golfers/components/Golfers';
 import SquigglyUnderline from "../../Utils/components/SquigglyLine"
 import Schedule from '../../Periods/components/Schedule';
@@ -15,11 +15,12 @@ import Modal from '../../Utils/components/Modal';
 import { resetSelectedGolfer } from '../../Golfers/state/golferSlice';
 import { useQueryClient } from '@tanstack/react-query';
 import PlayerPage from '../../Golfers/components/player/PlayerPage';
-import { getLeague } from '../state/leagueSlice';
 import NewStandings from "./NewStandings"
 import { setSelectedTeam } from '../../Teams/state/teamsSlice';
 import { Team } from '../../../types/teams';
 import { useFetchUpcomingPeriods } from '../../../hooks/periods';
+import { setActiveComponent, getLeague } from '../state/leagueSlice';
+import LoadingScreen from '../../Utils/components/LoadingScreen';
 
 export default function LeagueDashboard() {
     const dispatch = useDispatch<AppDispatch>();
@@ -28,15 +29,15 @@ export default function LeagueDashboard() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const [activeComponent, setActiveComponent] = useState<string>("Schedule");
     const [userSelectedTeam, setUserSelectedTeam] = useState<Team | null>(null);
 
     const selectedGolfer = useSelector((state: RootState) => state.golfers.selectedGolfer);
     const selectedLeague = useSelector((state: RootState) => state.leagues.selectedLeague);
 
     const user = useSelector((state: RootState) => state.users.user);
-    const leagueTeams = useSelector((state: RootState) => state.teams.leaguesTeams)
-    const userTeam = useSelector((state: RootState) => state.teams.userSelectedTeam)
+    const leagueTeams = useSelector((state: RootState) => state.teams.leaguesTeams);
+    const userTeam = useSelector((state: RootState) => state.teams.userSelectedTeam);
+    const activeComponent = useSelector((state: RootState) => state.leagues.activeComponent);
 
     const onClose = () => {
         dispatch(resetSelectedGolfer());
@@ -44,7 +45,7 @@ export default function LeagueDashboard() {
     };
 
     useEffect(() => {
-        if (leagueId && !leagueTeams) {
+        if (leagueId && !leagueTeams.length) {
             dispatch(getLeague(leagueId))
         };
 
@@ -52,8 +53,8 @@ export default function LeagueDashboard() {
 
     useEffect(() => {
         if (leagueTeams) {
-            dispatch(setSelectedTeam(leagueId))
-        }
+            dispatch(setSelectedTeam(leagueId));
+        };
     }, [leagueTeams, user]);
 
     const goToSettings = () => {
@@ -69,6 +70,10 @@ export default function LeagueDashboard() {
         isError,
         error,
     } = useFetchUpcomingPeriods(leagueId!);
+
+    if (!selectedLeague) {
+        return <LoadingScreen />
+    };
 
     return (
         <div className='flex justify-center items-center w-full flex-col min-w-[950px] bg-dark'>
@@ -97,7 +102,7 @@ export default function LeagueDashboard() {
                 <div className='p-5 flex items-center justify-center w-1/3'>
                         <SquigglyUnderline 
                         items={[{name:"Schedule"}, {name: "Standings"}, {name:"Team"}, {name:"Tournaments"}, {name:"Golfers"}]}
-                        setActiveComponent={setActiveComponent}
+                        setActiveComponent={(e) => dispatch(setActiveComponent(e))}
                         active={activeComponent}
                         />
                 </div>

@@ -100,6 +100,8 @@ def find_upcoming_league_periods(league_id):
             "DraftRounds": associated_draft["Rounds"],
             "TournamentName": associated_tournament["Name"],
             "TournamentVenue": associated_tournament["Venue"],
+            "DraftId": period["DraftId"],
+            "TournamentId": str(period["TournamentId"]),
             "TournamentLocation": associated_tournament["City"] + ", " + associated_tournament["State"],
             "TournamentStartDate": associated_tournament["StartDate"].strftime("%Y-%m-%d") if isinstance(associated_tournament["StartDate"], datetime) else str(associated_tournament["StartDate"]),
             "TournamentEndDate": associated_tournament["EndDate"].strftime("%Y-%m-%d") if isinstance(associated_tournament["EndDate"], datetime) else str(associated_tournament["EndDate"])
@@ -174,7 +176,9 @@ def find_upcoming_user_periods():
                 "DraftStartDate": associated_draft["StartDate"].strftime("%Y-%m-%d") if isinstance(associated_draft["StartDate"], datetime) else str(associated_draft["StartDate"]),
                 "DraftRounds": associated_draft["Rounds"],
                 "TournamentName": associated_tournament["Name"],
+                "TournamentId": str(period["TournamentId"]),
                 "TournamentVenue": associated_tournament["Venue"],
+                "DraftId": str(period["DraftId"]),
                 "TournamentLocation": associated_tournament["City"] + ", " + associated_tournament["State"],
                 "TournamentStartDate": associated_tournament["StartDate"].strftime("%Y-%m-%d") if isinstance(associated_tournament["StartDate"], datetime) else str(associated_tournament["StartDate"]),
                 "TournamentEndDate": associated_tournament["EndDate"].strftime("%Y-%m-%d") if isinstance(associated_tournament["EndDate"], datetime) else str(associated_tournament["EndDate"])
@@ -183,6 +187,8 @@ def find_upcoming_user_periods():
     if events:
         # Check if there is a next page
         next_page = page + 1 if end_index < total_events else None
+
+        print(events)
 
         return jsonify({
             "events": events,

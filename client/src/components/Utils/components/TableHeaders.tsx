@@ -1,10 +1,10 @@
 import React from "react"
 import THead from "./THead"
 
-export default function TableHeaders({ headers }) {
+export default function TableHeaders({ headers } : { headers: string[] }) {
 
     return (
-        <div className="w-full flex bg-middle lg:text-md md:text-md sm:text-sm text-sm truncate font-bold p-2 items-center text-clip border-b border-light">
+        <div className="w-full flex bg-middle text-xs truncate font-bold p-2 items-center text-clip border-b border-light">
             <div className="text-center flex w-1/2">
                 <div className="w-1/6">
                     {headers[0]}

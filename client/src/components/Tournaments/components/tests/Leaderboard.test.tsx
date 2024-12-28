@@ -2,9 +2,9 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Leaderboard from '../Leaderboard';
 import { useSelector } from 'react-redux';
-import { useFetchTournamentDetails } from '../../../../../hooks/tournaments';
+import { useFetchTournamentDetails } from '../../../../hooks/tournaments';
 import '@testing-library/jest-dom';
-import { Tournament } from '../../../../../types/tournaments';
+import { Tournament } from '../../../../types/tournaments';
 
 // Mock the hooks and components used in Leaderboard
 jest.mock('react-redux', () => ({

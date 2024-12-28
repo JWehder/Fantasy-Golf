@@ -1,7 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { Period } from "../../../types/periods";
 
-
 interface PeriodState {
     status: string;
     periods: Period[];

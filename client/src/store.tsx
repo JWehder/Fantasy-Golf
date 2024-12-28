@@ -3,13 +3,17 @@ import usersReducer from "./components/User/state/userSlice";
 import leaguesReducer from "./components/Leagues/state/leagueSlice";
 import golfersReducer from "./components/Golfers/state/golferSlice";
 import teamsReducer from "./components/Teams/state/teamsSlice"
+import tournamentsReducer from "./components/Tournaments/state/tournamentsSlice";
+import periodsReducer from "./components/Periods/state/periodSlice";
 
 const store = configureStore({
     reducer:{
         users: usersReducer,
         leagues: leaguesReducer,
         golfers: golfersReducer,
-        teams: teamsReducer
+        teams: teamsReducer,
+        tournaments: tournamentsReducer,
+        periods: periodsReducer
     },
 });
 

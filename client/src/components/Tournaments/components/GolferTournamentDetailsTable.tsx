@@ -1,7 +1,7 @@
 import React from "react";
 import TableHeaders from "../../Utils/components/TableHeaders";
 import { useFetchAllTournamentDetails } from "../../../hooks/golferTournamentDetails";
-import GolferTournamentDetailsTd from "./GolferTournamentDetailsTd";
+import GolferTournamentDetailsTd from "../../Golfers/components/GolferTournamentDetailsTd";
 import { TournamentHoles } from "../../../types/tournamentHoles";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../store";

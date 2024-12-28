@@ -43,7 +43,7 @@ const DraftPage = () => {
     };
 
     return (
-        <div>
+        <div className="bg-dark min-h-screen overflow-auto">
         {data.draft.IsComplete ? (
             <DraftResults
             draftPicks={data.draft.DraftPicks}

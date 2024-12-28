@@ -1,3 +1,5 @@
+import { Golfer } from "./golfers";
+
 export interface DraftPick {
     id: string;
     TeamId: string;
@@ -6,6 +8,7 @@ export interface DraftPick {
     PickNumber: number;
     LeagueId: string;
     DraftId: string;
+    Golfer: Golfer;
     created_at: Date;
     updated_at: Date;
 }
