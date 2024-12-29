@@ -71,7 +71,7 @@ class Draft(Base):
             random.shuffle(self.DraftOrder)
         else:
             # Get the most recent period
-            most_recent_period = self.get_most_recent_period()
+            most_recent_period = league.get_most_recent_period()
             
             # if there is a most recent period and that period has standings
             # set the draft to be the reverse of the standings

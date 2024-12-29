@@ -109,8 +109,6 @@ class League(Base):
 
             tournament_ids = [ObjectId(tournament["_id"]) for tournament in tournaments]
 
-            print(first_tournament_doc['StartDate'], last_tournament_doc['EndDate'])
-
             first_season = FantasyLeagueSeason(
                 SeasonNumber=1,
                 StartDate=first_tournament_doc["StartDate"],
@@ -392,12 +390,14 @@ class League(Base):
         return FantasyLeagueSeason(**season) if season else None
 
     def get_most_recent_period(self):
+        from models import Period
+
         current_date = datetime.utcnow()
         period = db.periods.find_one(
             {"LeagueId": self.id, "EndDate": {"$lt": current_date}},
             sort=[("EndDate", -1)]
         )
-        return period
+        return Period(**period)
 
     def determine_waiver_order(self) -> bool:
         # Retrieve league settings

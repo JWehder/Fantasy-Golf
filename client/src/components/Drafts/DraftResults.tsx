@@ -55,14 +55,13 @@ const DraftResults: React.FC<DraftResultsProps> = ({
 
   const getTeamName = (teamId: string) => {
     const team = leagueTeams.find((team) => team.id === teamId);
-    console.log(leagueTeams)
     return team ? team.TeamName : "Unknown Team";
   };
 
   const headers = ["Fedex Rank", "Golfer", "Avg Score", "Top 10s", "Wins", "Cuts Made", "Fedex Pts"];
 
   return (
-    <div className="w-full flex items-center justify-center">
+    <div className="w-full flex items-center justify-center min-w-[775px]">
         <div className="w-10/12 bg-dark text-light flex flex-col items-center mb-2 rounded-lg">
             {/* Header */}
             <div className="w-full flex justify-between items-center bg-middle p-4 rounded-lg shadow-lg">
@@ -70,6 +69,7 @@ const DraftResults: React.FC<DraftResultsProps> = ({
                 handleBackClick={handleBackToLeagueClick} 
                 size={8} 
                 color="light"
+                message="Back"
                 />
                 <div className="text-lg font-bold">Draft Results - Round {currentRound}</div>
                 <div className="text-md">
@@ -96,9 +96,10 @@ const DraftResults: React.FC<DraftResultsProps> = ({
                             .filter((draftPick) => draftPick.RoundNumber === currentRound)
                             .map((pick, index) => (
                                 <>
-                                    <h3 className="text-md font-semibold p-2">
+                                    <h3 className="text-md font-semibold p-2 border-b-2 border-light">
                                         {getTeamName(pick.TeamId)} - {pick.PickNumber}
                                     </h3>
+
                                     <PlayerData
                                     player={pick.Golfer}
                                     even={index % 2 === 0}

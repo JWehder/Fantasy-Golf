@@ -100,7 +100,7 @@ def find_upcoming_league_periods(league_id):
             "DraftRounds": associated_draft["Rounds"],
             "TournamentName": associated_tournament["Name"],
             "TournamentVenue": associated_tournament["Venue"],
-            "DraftId": period["DraftId"],
+            "DraftId": str(period["DraftId"]),
             "TournamentId": str(period["TournamentId"]),
             "TournamentLocation": associated_tournament["City"] + ", " + associated_tournament["State"],
             "TournamentStartDate": associated_tournament["StartDate"].strftime("%Y-%m-%d") if isinstance(associated_tournament["StartDate"], datetime) else str(associated_tournament["StartDate"]),

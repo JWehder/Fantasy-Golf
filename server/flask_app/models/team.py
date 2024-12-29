@@ -1,5 +1,5 @@
 from typing import Optional, Dict, List, Union
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 from datetime import datetime
 from bson import ObjectId
 
@@ -12,7 +12,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from models.base_model import Base
 from models import PyObjectId
 from config import db
+from dataclasses import dataclass
 
+@dataclass
 class Golfer(Base):
     UsageCount: int
     CurrentlyOnTeam: bool
@@ -154,7 +156,15 @@ class Team(Base):
                 {"$set": {f"FreeAgentSignings.{self.id}": [free_agent_id]}}
         )
 
-    def add_to_golfer_usage(self, golfer_id: str, bench: bool = False):
+    def can_use_golfer(golfer, league_settings):
+        max_uses = league_settings.get("MaxNumOfGolferUses", 0)
+        usage_count = golfer.get("UsageCount", 0)
+
+        if max_uses > 0 and usage_count >= max_uses:
+            return False
+        return True
+
+    def add_to_golfer_usage(self, golfer_id: str):
         """Adds usage for a golfer or signs them to the team."""
         golfer_id_str = str(golfer_id)
         league_settings = db.leagueSettings.find_one({"LeagueId": self.LeagueId})
@@ -170,14 +180,14 @@ class Team(Base):
 
         if golfer_id_str in self.Golfers:
             golfer = self.Golfers[golfer_id_str]
+            
+            if not self.can_use_golfer(golfer, league_settings):
+                return "Sorry, you have used this golfer the max amount of allowable times according to your league."
+
             golfer.UsageCount += 1
             golfer.CurrentlyOnTeam = True
-            if bench:
-                self.set_golfer_as_bench(golfer_id)
-            else:
-                self.set_golfer_as_starter(golfer_id)
         else:
-            is_starter = not bench and num_of_starters < league_settings["NumOfStarters"]
+            is_starter = num_of_starters < league_settings["NumOfStarters"]
             golfer = Golfer(
                 UsageCount=1,
                 CurrentlyOnTeam=True,
@@ -258,3 +268,15 @@ class Team(Base):
             })
 
         return golfers_data
+
+    def draft_player(self, golfer_id: str) -> None or str:
+        try:
+            golfer = db.golfers.find_one({"_id": ObjectId(golfer_id)})
+
+            if not golfer or not golfer_id:
+                return "Sorry, we could not find that golfer."
+
+            self.add_to_golfer_usage(golfer_id)
+        except Exception as e:
+            return f"Sorry, there was an error: {e}"
+
