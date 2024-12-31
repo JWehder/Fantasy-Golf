@@ -97,7 +97,13 @@ export default function LeagueDashboard() {
     const onAddClick = (golferId: string) => {
       console.log(golferId);
     };
-  
+
+    // Map React Query data to match the expected prop structure
+    const golfersPages = golfersData?.pages.map((page) => ({
+        golfers: page.golfers,
+        nextPage: page.nextPage,
+    }));
+
     const headers = ["Fedex Rank", "Golfer", "Avg Score", "Top 10s", "Wins", "Cuts Made", "Fedex Pts"];
 
     return (
@@ -167,7 +173,7 @@ export default function LeagueDashboard() {
                 { activeComponent === "Golfers" && 
                     <Golfers
                     headers={headers}
-                    data={golfersData}
+                    data={golfersPages || []}
                     isFetching={isFetchingGolfers}
                     isFetchingNextPage={isFetchingNextGolferPage}
                     hasNextPage={hasNextGolferPage}

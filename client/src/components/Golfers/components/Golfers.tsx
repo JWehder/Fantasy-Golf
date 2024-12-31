@@ -4,10 +4,16 @@ import React, { useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 import SkeletonTable from "../../Utils/components/SkeletonTable";
 import LoadingWidget from "../../Utils/components/LoadingWidget";
+import { Golfer } from "../../../types/golfers";
+
+interface Page {
+    golfers: Golfer[];
+    nextPage: number | null | undefined;
+}
 
 interface GolfersProps {
     headers: string[];
-    data: any[];
+    data: Page[] | null;
     isFetching: boolean;
     hasNextPage: boolean;
     isFetchingNextPage: boolean;
@@ -30,7 +36,7 @@ const Golfers = ({ headers, data, isFetching, hasNextPage, fetchNextPage, isFetc
             <div>
                 <TableHeaders headers={headers} />
             </div>
-            {data?.pages.map((page, pageIndex) => (
+            {data?.map((page, pageIndex) => (
                 <div 
                 key={pageIndex + (page.nextPage || 0)}
                 >
