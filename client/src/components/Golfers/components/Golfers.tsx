@@ -1,30 +1,22 @@
-import DashboardTitle from "../../User/components/home/DashboardTitle";
 import PlayerData from "./PlayerData";
 import TableHeaders from "../../Utils/components/TableHeaders"
-import { useParams } from "react-router-dom";
 import React, { useEffect } from "react";
 import { useInView } from "react-intersection-observer";
-import { useFetchAvailableGolfers } from "../../../hooks/golfers";
-import { useDispatch } from "react-redux";
-import { setSelectedGolfer } from "../state/golferSlice";
 import SkeletonTable from "../../Utils/components/SkeletonTable";
 import LoadingWidget from "../../Utils/components/LoadingWidget";
 
-export default function Golfers() {
-    // Retrieve the league ID from the URL
-    const { leagueId } = useParams<{ leagueId: string }>();
-    const dispatch = useDispatch();
-
-    const {
-        data,
-        fetchNextPage,
-        hasNextPage,
-        isFetching,
-        isFetchingNextPage,
-        isError,
-        error,
-    } = useFetchAvailableGolfers(leagueId!);
-
+interface GolfersProps {
+    headers: string[];
+    data: any[];
+    isFetching: boolean;
+    hasNextPage: boolean;
+    isFetchingNextPage: boolean;
+    fetchNextPage: () => void;
+    onGolferClick: (golfer: object) => void;
+    onAddClick: (golferId: string) => void;
+  }
+  
+const Golfers = ({ headers, data, isFetching, hasNextPage, fetchNextPage, isFetchingNextPage, onGolferClick, onAddClick }: GolfersProps) => {
     const { ref, inView } = useInView();
 
     useEffect(() => {
@@ -32,21 +24,6 @@ export default function Golfers() {
             fetchNextPage();
         };
     }, [inView, fetchNextPage]);
-
-    const headers = ["Fedex Rank", "Golfer", "Avg Score", "Top 10s", "Wins", "Cuts Made", "Fedex Pts"];
-
-    // Render error message if there's an error
-    if (isError) {
-        return <div>Error: {error instanceof Error ? error.message : 'An unexpected error occurred.'}</div>;
-    };
-
-    const handleGolferClick = (golfer: object) => {
-        dispatch(setSelectedGolfer(golfer));
-    };
-
-    const onAddClick = (golferId: string) => {
-        console.log(golferId);
-    }
 
     return (
         <div className="w-full h-full overflow-auto text-light font-PTSans break-all bg-middle p-2">
@@ -63,7 +40,7 @@ export default function Golfers() {
                             key={golfer.id}
                             even={idx % 2 == 0}
                             player={golfer}
-                            onClick={() => handleGolferClick(golfer)}
+                            onClick={() => onGolferClick(golfer)}
                         />
                         <button 
                         className="bg-transparent text-dark p-2 rounded-full border-2 border-dark text-center hover:bg-light" 
@@ -86,3 +63,6 @@ export default function Golfers() {
         </div>
     );
 }
+
+
+export default Golfers;

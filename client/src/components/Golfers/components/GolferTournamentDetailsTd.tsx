@@ -22,6 +22,7 @@ export default function GolferTournamentDetailsTd({ detail, desiredKeysSet, idx,
             columns={desiredKeysSet}
             brightness={idx % 2 === 0 ? 'brightness-125' : ''}
             onClick={() => setShowHolesComparisonChart(!showHolesComparisonChart)}
+            disabled={false}
             />
             {showHolesComparisonChart && (
                 <HolesComparisonChart

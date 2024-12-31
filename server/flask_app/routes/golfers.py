@@ -109,11 +109,6 @@ def get_golfer_details(golfer_id):
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
-@golfers_bp.route('/hi', methods=['GET'])
-def get_greeting():
-    """Fetches a golfer by ID"""
-    return jsonify({"message": "This is a super message!"})
-
 @golfers_bp.route('/available_golfers/leagues/<league_id>', methods=['GET'])
 def get_available_golfers(league_id):
     """Fetches available golfers for a league with pagination"""

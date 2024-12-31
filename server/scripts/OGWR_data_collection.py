@@ -15,7 +15,7 @@ client = MongoClient(uri)
 db = client.scramble
 
 # Open the CSV file
-csv_file_path = 'downloaded_rankings (1).csv'
+csv_file_path = 'downloaded_rankings (2).csv'
 players_to_insert = []
 
 number_of_players_found = 0

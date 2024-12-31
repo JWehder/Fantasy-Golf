@@ -11,7 +11,6 @@ type Golfer = {
 };
 
 type DraftingConsoleProps = {
-  availableGolfers: Golfer[];
   currentTeam: string;
   draftOrder: string[];
   draftPicks: Record<string, Golfer[]>;
@@ -21,7 +20,6 @@ type DraftingConsoleProps = {
 };
 
 const DraftingConsole: React.FC<DraftingConsoleProps> = ({
-  availableGolfers,
   currentTeam,
   draftOrder,
   draftPicks,

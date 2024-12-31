@@ -7,7 +7,7 @@ import ErrorPage from "../Utils/components/ErrorPage";
 import { useFetchDraftData } from "../../hooks/drafts";
 import { useDispatch } from "react-redux";
 import { useSelector } from "react-redux";
-import { getLeague } from "../Leagues/state/leagueSlice";
+import { getLeague, setSelectedLeague } from "../Leagues/state/leagueSlice";
 import { AppDispatch, RootState } from "../../store";
 
 const DraftPage = () => {
@@ -16,6 +16,14 @@ const DraftPage = () => {
     const [isLoading, setIsLoading] = useState(true);
 
     const league = useSelector((state: RootState) => state.leagues.selectedLeague);
+
+    useEffect(() => {
+        if (!league) {
+            const leagues = useSelector((state: RootState) => state.leagues.leagues);
+            const selectedLeague = leagues.filter((league) => league.id === leagueId);
+            dispatch(setSelectedLeague(selectedLeague));
+        };
+    }, [leagueId]);
   
     useEffect(() => {
       const loadData = async () => {

@@ -500,11 +500,9 @@ class League(Base):
             self.id = result.inserted_id
         return self.id
 
-    def get_available_golfers(self, limit: int, page: int = 0) -> List["Golfer"]:
-        from models import Golfer
-
-        # Collect all unavailable players
-        unavailable_players = set()
+    def get_all_rostered_players(self):
+        # Collect all rostered players
+        rostered_players = set()
         for team_id in self.Teams:
             team = db.teams.find_one({
                 "_id": ObjectId(team_id)
@@ -512,7 +510,13 @@ class League(Base):
 
             for golfer_id, golfer_info in team["Golfers"].items():
                 if golfer_info['CurrentlyOnTeam']:
-                    unavailable_players.add(ObjectId(golfer_id))
+                    rostered_players.add(ObjectId(golfer_id))
+        return rostered_players
+
+    def get_available_golfers(self, limit: int, page: int = 1) -> List[dict]:
+        from models import Golfer
+
+        unavailable_players = self.get_all_rostered_players()
 
         # Calculate the number of documents to skip
         offset = page * limit

@@ -21,6 +21,9 @@ import { Team } from '../../../types/teams';
 import { useFetchUpcomingPeriods } from '../../../hooks/periods';
 import { setActiveComponent, getLeague } from '../state/leagueSlice';
 import LoadingScreen from '../../Utils/components/LoadingScreen';
+import { setSelectedGolfer } from '../../Golfers/state/golferSlice';
+import { useFetchAvailableGolfers } from '../../../hooks/golfers';
+useFetchAvailableGolfers
 
 export default function LeagueDashboard() {
     const dispatch = useDispatch<AppDispatch>();
@@ -62,18 +65,40 @@ export default function LeagueDashboard() {
         navigate(`${location.pathname}/settings`);
     };
 
-    const {
-        data,
-        fetchNextPage,
-        hasNextPage,
-        isFetchingNextPage,
-        isError,
-        error,
-    } = useFetchUpcomingPeriods(leagueId!);
-
     if (!selectedLeague) {
         return <LoadingScreen />
     };
+
+    // Fetch upcoming periods
+    const {
+        data: periodsData,
+        fetchNextPage: fetchNextPeriodPage,
+        hasNextPage: hasNextPeriodPage,
+        isFetchingNextPage: isFetchingNextPeriodPage,
+        isError: isPeriodError,
+        error: periodError,
+    } = useFetchUpcomingPeriods(leagueId!);
+
+    // Fetch available golfers
+    const {
+        data: golfersData,
+        fetchNextPage: fetchNextGolferPage,
+        hasNextPage: hasNextGolferPage,
+        isFetchingNextPage: isFetchingNextGolferPage,
+        isFetching: isFetchingGolfers,
+        isError: isGolferError,
+        error: golferError,
+    } = useFetchAvailableGolfers(leagueId!);
+  
+    const handleGolferClick = (golfer: object) => {
+      dispatch(setSelectedGolfer(golfer));
+    };
+  
+    const onAddClick = (golferId: string) => {
+      console.log(golferId);
+    };
+  
+    const headers = ["Fedex Rank", "Golfer", "Avg Score", "Top 10s", "Wins", "Cuts Made", "Fedex Pts"];
 
     return (
         <div className='flex justify-center items-center w-full flex-col min-w-[950px] bg-dark'>
@@ -140,16 +165,25 @@ export default function LeagueDashboard() {
                     <Leaderboard />
                 }
                 { activeComponent === "Golfers" && 
-                    <Golfers />
+                    <Golfers
+                    headers={headers}
+                    data={golfersData}
+                    isFetching={isFetchingGolfers}
+                    isFetchingNextPage={isFetchingNextGolferPage}
+                    hasNextPage={hasNextGolferPage}
+                    fetchNextPage={fetchNextGolferPage}
+                    onGolferClick={handleGolferClick}
+                    onAddClick={onAddClick}
+                    />
                 }
                 { activeComponent === "Schedule" && 
                     <Schedule
-                    data={data}
-                    fetchNextPage={fetchNextPage}
-                    hasNextPage={hasNextPage}
-                    isFetchingNextPage={isFetchingNextPage}
-                    isError={isError}
-                    error={error}
+                    data={periodsData}
+                    fetchNextPage={fetchNextPeriodPage}
+                    hasNextPage={hasNextPeriodPage}
+                    isFetchingNextPage={isFetchingNextPeriodPage}
+                    isError={isPeriodError}
+                    error={periodError}
                     />
                 }
             </div>

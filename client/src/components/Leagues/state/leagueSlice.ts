@@ -111,6 +111,9 @@ const leagueSlice = createSlice({
         },
         setActiveComponent(state, action) {
             state.activeComponent = action.payload;
+        }, 
+        setSelectedLeague(state, action) {
+            state.selectedLeague = action.payload;
         }
     },
     extraReducers: builder => {
@@ -153,6 +156,9 @@ const leagueSlice = createSlice({
     }
 });
 
-export const { setLeagues, setActiveComponent } = leagueSlice.actions;
+export const { 
+    setLeagues, 
+    setActiveComponent, 
+    setSelectedLeague } = leagueSlice.actions;
 
 export default leagueSlice.reducer;

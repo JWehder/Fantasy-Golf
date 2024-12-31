@@ -47,7 +47,6 @@ const EventItem: React.FC<EventItemProps> = ({ event }) => {
     const dispatch = useDispatch<AppDispatch>();
 
     const handleTournamentClick = () => {
-        console.log(event.TournamentId)
         dispatch(getTournament(event.TournamentId));
     };
 

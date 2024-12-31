@@ -164,7 +164,7 @@ class Team(Base):
             return False
         return True
 
-    def add_to_golfer_usage(self, golfer_id: str):
+    def add_to_golfer_usage(self, golfer_id: str) -> List[Golfer]:
         """Adds usage for a golfer or signs them to the team."""
         golfer_id_str = str(golfer_id)
         league_settings = db.leagueSettings.find_one({"LeagueId": self.LeagueId})
@@ -269,14 +269,5 @@ class Team(Base):
 
         return golfers_data
 
-    def draft_player(self, golfer_id: str) -> None or str:
-        try:
-            golfer = db.golfers.find_one({"_id": ObjectId(golfer_id)})
 
-            if not golfer or not golfer_id:
-                return "Sorry, we could not find that golfer."
-
-            self.add_to_golfer_usage(golfer_id)
-        except Exception as e:
-            return f"Sorry, there was an error: {e}"
 
