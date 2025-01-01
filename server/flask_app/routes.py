@@ -39,29 +39,6 @@ app.register_blueprint(users_bp, url_prefix='/auth')
 app.register_blueprint(league_settings_bp, url_prefix='/league_settings')
 app.register_blueprint(tournaments_bp, url_prefix='/tournaments')
 
-@app.route('/start_draft', methods=['POST'])
-def start_draft():
-    # Your logic to start the draft
-    user_id = request.json.get('user_id')
-    pick_duration = request.json.get('pick_duration')
-
-    # Start the draft timer via WebSocket
-    request.post('http://localhost:5555/start_draft_timer/', json={'user_id': user_id, 'pick_duration': pick_duration})
-    return jsonify({'message': 'Draft started and timer initiated'}), 200
-
-@app.route('/end_draft', methods=['POST'])
-def end_draft():
-    # Your logic to end the draft
-    user_id = request.json.get('user_id')
-
-    # Stop the draft timer via WebSocket
-    request.post('http://localhost:5555/stop_draft_timer/', json={'user_id': user_id})
-    return jsonify({'message': 'Draft ended and timer stopped'}), 200
-
-@app.route('/', methods=['GET'])
-def hello_world():
-    return {"routes": "working!"}
-
 @app.route('/get_facebook_appId', methods=["GET"])
 def get_facebook_appId():
     # Authentication: You might use a more secure method here

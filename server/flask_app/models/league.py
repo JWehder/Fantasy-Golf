@@ -392,12 +392,26 @@ class League(Base):
     def get_most_recent_period(self):
         from models import Period
 
-        current_date = datetime.utcnow()
-        period = db.periods.find_one(
-            {"LeagueId": self.id, "EndDate": {"$lt": current_date}},
-            sort=[("EndDate", -1)]
-        )
-        return Period(**period)
+        current_period = db.periods.find_one({"_id": self.CurrentPeriodId})
+
+        last_period = db.periods.find_one({
+            "PeriodNumber": current_period - 1,
+            "FantasyLeagueSeasonId": current_period["FantasyLeagueSeasonId"]
+        })
+
+        return Period(**last_period) if last_period else None
+
+    def get_next_period(self):
+        from models import Period
+
+        current_period = db.periods.find_one({"_id": self.CurrentPeriodId})
+
+        next_period = db.periods.find_one({
+            "PeriodNumber": current_period + 1,
+            "FantasyLeagueSeasonId": current_period["FantasyLeagueSeasonId"]
+        })
+
+        return Period(**next_period) if next_period else None
 
     def determine_waiver_order(self) -> bool:
         # Retrieve league settings
@@ -412,6 +426,7 @@ class League(Base):
             if most_recent_period and most_recent_period.Standings:
                 standings = most_recent_period.Standings
                 self.WaiverOrder = standings[::-1]  # Reverse the standings
+                self.save()
 
                 # Update WaiverNumber for each team
                 for i, team_id in enumerate(self.WaiverOrder):
@@ -477,6 +492,36 @@ class League(Base):
         first_draft_id = first_draft.save()
 
         return first_draft_id
+
+    def determine_next_draft_order(self, next_period: Period):
+        from models import Draft
+
+        last_period_standings = db.periods.find_one({"_id": self.CurrentPeriodId})["Standings"]
+
+        next_draft = db.drafts.find_one({"_id": next_period["DraftId"]})
+
+        if next_draft:
+            next_draft_instance = Draft(**next_draft)
+            next_draft_instance.DraftOrder = last_period_standings[::-1]
+            
+            next_draft.save()
+
+            return True
+        return False
+
+    def start_new_period(self): 
+        # get the next period
+        next_period = self.get_next_period()
+
+        # update the next draft order based on the previous period's standings
+        self.determine_next_draft_order(next_period)
+
+        # current period changes to the next period
+        self.CurrentPeriodId = next_period
+
+        # arrange the waiver order based on however the league has decided to arrange the order in 
+        self.determine_waiver_order()
+
 
     def handle_tournament_end(self, tournament_end_date: datetime):
         # Called when a tournament ends to update the current period and start a new one

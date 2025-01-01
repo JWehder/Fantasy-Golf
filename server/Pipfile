@@ -24,6 +24,7 @@ pytz = "*"
 email-validator = "*"
 flask-mailman = "*"
 pytest = "*"
+flask-sock = "*"
 
 [dev-packages]
 

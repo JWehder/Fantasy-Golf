@@ -23,3 +23,28 @@ export const useFetchAvailableGolfers = (leagueId: string ) => {
     });
 };
 
+
+// Fetch golfers with pagination
+const fetchAvailableTourneyGolfers = async ({ 
+    pageParam = 0, 
+    leagueId, 
+    tournamentId 
+    }: 
+    { 
+    pageParam?: number; 
+    leagueId: string, 
+    tournamentId: string 
+}): Promise<GolfersResponse> => {
+    const response = await axios.get<GolfersResponse>(`/api/golfers/available_golfers/leagues/${leagueId}/tournaments/${tournamentId}?page=${pageParam}`);
+    return response.data;
+};
+
+// Custom hook for fetching golfers with infinite pagination
+export const useFetchAvailableTourneyGolfers = (leagueId: string, tournamentId: string ) => {
+    return useInfiniteQuery<GolfersResponse>({
+        queryKey: ['golfers', leagueId],
+        queryFn: ({ pageParam }) => fetchAvailableTourneyGolfers({ pageParam: pageParam as number, leagueId, tournamentId }),
+        initialPageParam: 0,
+        getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
+    });
+};

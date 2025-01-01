@@ -2,6 +2,7 @@ from flask import jsonify, abort, Blueprint, request
 import sys
 import os
 from bson.objectid import ObjectId
+import random
 
 # Adjust the paths for MacOS to get the flask_app directory
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -32,9 +33,22 @@ def get_draft(draft_id):
             .sort([("RoundNumber", 1), ("PickNumber", 1)])
         )
 
-        if draft_picks:
-            draft_dict = Draft(**draft_data).to_dict()
+        draft_instance = Draft(**draft_data)
 
+        team_ids = draft_data.get("DraftOrder", [])
+        if not team_ids:
+            try:
+                teams = list(db.teams.find({"LeagueId": draft_instance.LeagueId}))
+                team_ids = [str(team["_id"]) for team in teams]
+                random.shuffle(team_ids)
+                draft_instance.DraftOrder = team_ids
+                draft_instance.save()
+            except Exception as e:
+                return {"error": f"Failed to generate DraftOrder: {str(e)}"}
+        
+        draft_dict = draft_instance.to_dict()
+
+        if draft_picks:
             draft_dict["DraftPicks"] = []
             for pick in draft_picks:
                 try:
@@ -43,7 +57,7 @@ def get_draft(draft_id):
                 except Exception as e:
                     print(f"Error processing pick: {pick}, Error: {e}")
 
-            draft_dict["DraftOrder"] = [pick["TeamId"] for pick in draft_dict["DraftPicks"]]
+            draft_dict["DraftOrder"] = [db.teams.find_one({"_id": pick["TeamId"]}) for pick in draft_dict["DraftPicks"]]
 
             golfer_ids = [pick["GolferId"] for pick in draft_picks]
             golfers = {

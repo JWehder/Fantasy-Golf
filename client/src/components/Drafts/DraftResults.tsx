@@ -95,7 +95,7 @@ const DraftResults: React.FC<DraftResultsProps> = ({
                         {leagueSettings && draftPicks
                             .filter((draftPick) => draftPick.RoundNumber === currentRound)
                             .map((pick, index) => (
-                                <>
+                                <div key={`${getTeamName(pick.TeamId)} - ${pick.PickNumber}`}>
                                     <h3 className="text-md font-semibold p-2 border-b-2 border-light">
                                         {getTeamName(pick.TeamId)} - {pick.PickNumber}
                                     </h3>
@@ -105,7 +105,7 @@ const DraftResults: React.FC<DraftResultsProps> = ({
                                     even={index % 2 === 0}
                                     onClick={() => openGolferModal(pick.Golfer.id)}
                                     />
-                                </>
+                                </div>
                             ))}
                         </div>
                     ) : (

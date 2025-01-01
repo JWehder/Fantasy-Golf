@@ -146,3 +146,67 @@ def get_available_golfers(league_id):
         }), 200
 
     return jsonify({"error": "Available golfers not found. Please try again."}), 404
+
+
+@golfers_bp.route('/available_golfers/leagues/<league_id>/tournaments/<tournament_id>', methods=['GET'])
+def get_available_golfers_by_tournament(league_id, tournament_id):
+    """Fetches available golfers for a tournament with pagination"""
+
+    from models import League
+    # Get pagination parameters
+    page = request.args.get('page', default=0, type=int)
+    limit = 50  # Number of golfers per page
+
+    # Find the league by ID
+    league = db.leagues.find_one({
+        "_id": ObjectId(league_id)
+    })
+
+    if not league:
+        return jsonify({"error": "Sorry, we do not recognize that league."}), 404
+    
+    league_instance = League(**league)
+
+    # Calculate the number of documents to skip
+    offset = page * limit
+
+    # Slice the list of available players for pagination
+    start_index = page * limit
+    end_index = start_index + limit
+
+    # get all the golfers that are currently rostered
+    unavailable_golfers_ids = league_instance.get_all_rostered_players()
+
+    # filter query by golfers who are already on a team and a part of this tourney
+    associated_golfer_tournament_details = db.golfertournamentdetails.find(
+        {
+            "TournamentId": tournament_id,
+            "GolferId": {"$nin": unavailable_golfers_ids}
+        }
+    )
+
+    available_golfers_ids = [golfer["GolferId"] for golfer in associated_golfer_tournament_details]
+
+    available_golfers = db.golfers.find({
+        "GolferId": {"$in": available_golfers_ids}
+    }).sort("OGWR").skip(offset).limit(limit)
+
+    # Count the total number of available golfers with OWGR and FedexPts
+    number_of_total_available_golfers = db.golfers.count_documents({
+        '_id': {'$nin': list(unavailable_golfers_ids)},
+        'OGWR': {'$exists': True, '$ne': None}
+    })
+
+    available_golfers_dicts = [Golfer(golfer).to_dict() for golfer in available_golfers]
+
+    if available_golfers:
+        
+        # Check if there is a next page
+        next_page = page + 1 if end_index < number_of_total_available_golfers else None
+
+        return jsonify({
+            "golfers": available_golfers_dicts,
+            "nextPage": next_page
+        }), 200
+
+    return jsonify({"error": "Available golfers not found. Please try again."}), 404
