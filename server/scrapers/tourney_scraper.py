@@ -518,6 +518,32 @@ def parse_tournaments(tournaments):
 
     return True
 
+def get_tournament_data(schedule_link: str):
+    options = Options()
+
+    options = webdriver.ChromeOptions()
+    options.add_argument('--no-sandbox')
+    options.headless = True
+
+    options.add_argument('--headless=new')
+
+    # Only pass options once when creating the WebDriver instance
+    wd = webdriver.Chrome(options=options)
+
+    driver = wd
+
+    driver.get(schedule_link)
+
+    tournament_tds = driver.find_elements(By.CSS_SELECTOR, "div.eventAndLocation__innerCell")
+
+    for tournament_td in tournament_tds:
+        tournament_link = tournament_td.find_element(By.CSS_SELECTOR, "a.AnchorLink").href
+        driver.get(tournament_link)
+
+        tourney_header_data = parse_tournament_header(driver)
+
+        print(tourney_header_data)
+
 if __name__ == "__main__":
 
     # Define the cutoff date
@@ -566,8 +592,6 @@ if __name__ == "__main__":
         responsive_tables = competitors_table.find_elements(By.CSS_SELECTOR, "div.ResponsiveTable")
 
         tournament_dict = dict(tournament)
-
-        print(tournament_dict['Links'][0])
 
         tournament_dict["Golfers"] = parse_leaderboard(tournament_dict["Par"], responsive_tables[-1], driver)
         

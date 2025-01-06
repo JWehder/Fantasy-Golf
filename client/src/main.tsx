@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { App } from './App'
 import './index.css'
 import store from './store.jsx';
-import { Provider, useDispatch } from "react-redux";
+import { Provider } from "react-redux";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import SignedOutHome from './components/User/components/home/SignedOutHome.jsx'
 import { SignedInHome } from './components/User/components/home/SignedInHome.jsx';
@@ -58,7 +58,7 @@ const router = createBrowserRouter([
           {
             path: "/leagues/:leagueId/drafts/:draftId",
             element: <DraftPage />,
-          }
+          },
       ]
       },
       {

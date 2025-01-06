@@ -110,19 +110,18 @@ def handle_tournament_data(tournament_data: dict):
         PreviousWinner=golfer_doc["_id"] if golfer_doc else None,
         Par=tournament_data["Par"],
         Yardage=tournament_data["Yardage"],
-        IsCompleted=tournament_data["isCompleted"],
-        InProgress=tournament_data["isInProgress"]
+        IsCompleted=tournament_data["IsCompleted"],
+        InProgress=tournament_data["InProgress"],
+        ProSeasonId=tournament_data["ProSeasonId"]
     )
 
-    tournament_id = tournament.save()
 
     if "Golfers" in tournament_data:
         handle_golfer_data(tournament_data, tournament_id)
-    else:
-        db.tournaments.update_one(
-            {"_id": tournament_id},
-            {"$set": {"Golfers": []}}
-        )
+
+    tournament_id = tournament.save()
+
+    return tournament_id
 
 def handle_golfer_data(tournament_data: dict, tournament_id: ObjectId):
     print("for golfers")
@@ -164,7 +163,6 @@ def handle_golfer_data(tournament_data: dict, tournament_id: ObjectId):
         )
 
         golfer_details_id = golfer_details.save()
-        print(golfer_details_id)
 
         db.golfers.update_one(
             {"_id": golfer["_id"]},
@@ -204,11 +202,6 @@ def handle_golfer_data(tournament_data: dict, tournament_id: ObjectId):
             {"_id": golfer_details_id},
             {"$set": {"Rounds": round_ids}}
         )
-
-    db.tournaments.update_one(
-        {"_id": tournament_id},
-        {"$push": {"Golfers": {"$each": list(db.golfertournamentdetails.find({"TournamentId": tournament_id}))}}},
-    )
 
 if __name__ == "__main__":
     directory = "../results"  # Replace with the actual directory path

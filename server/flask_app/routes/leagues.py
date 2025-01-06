@@ -3,6 +3,7 @@ import sys
 import os
 from bson.objectid import ObjectId
 import traceback
+from datetime import datetime
 
 # Adjust the paths for MacOS to get the flask_app directory
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -57,6 +58,34 @@ def get_teams_by_league_id(league_id):
 
         league_dict["LeagueSettings"]["ProSeason"] = pro_season_name
 
+        # Is the fantasy league season over? True or False
+        # Will input into league_dict[FantasySeasonActive]
+
+        try:
+            season_id = ObjectId(league_dict["CurrentFantasyLeagueSeasonId"])
+        except (KeyError):
+            # Handle missing or invalid ID
+            season_id = None
+
+        if season_id:
+            # find the fantasy league season
+            fantasy_league_season =  db.fantasyLeagueSeasons.find_one({
+                "_id": ObjectId(season_id)
+            })
+
+            # If there is an associated fantasy league found, let's determine if it's over
+            if fantasy_league_season:
+                datetime_now = datetime.utcnow()
+
+                if fantasy_league_season["Active"] and datetime_now > fantasy_league_season["EndDate"]:
+                    db.fantasyLeagueSeasons.update_one(
+                        {"_id": fantasy_league_season["_id"]},
+                        {"$set": {"Active": False}}
+                    )
+                    league_dict["ActiveFantasySeason"] = False
+                else:
+                    league_dict["ActiveFantasySeason"] = fantasy_league_season["Active"]
+
         return jsonify(league_dict), 200
     except Exception as e:
         # Log the exception traceback for debugging purposes
@@ -66,3 +95,6 @@ def get_teams_by_league_id(league_id):
         # Return a generic error response to the user
         return jsonify({"error": "An error occurred. Please try again later."}), 500
 
+@leagues_bp.route('/create_league', methods=['POST'])
+def create_league():
+    pass

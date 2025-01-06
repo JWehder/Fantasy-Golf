@@ -12,7 +12,6 @@ from models import FantasyLeagueSeason, Tournament
 fantasy_league_seasons_bp = Blueprint('fantasy_league_seasons', __name__)
 
 def convert_to_tournament_dicts(tournaments):
-
         # Convert each tournament to a dictionary
         tournament_dicts = [Tournament(**tournament).to_dict() for tournament in tournaments]
 
@@ -24,7 +23,8 @@ def convert_to_tournament_dicts(tournaments):
                     "Position": "1"
                 })
 
-                tournament_dict["Winner"] = winner["Name"] + " " + f'({str(winner["Score"])})'
+                if winner:
+                    tournament_dict["Winner"] = winner["Name"] + " " + f'({str(winner["Score"])})'
             else:
                 previous_winner = db.golfers.find_one({
                     "_id": ObjectId(tournament_dict["PreviousWinner"])
@@ -53,28 +53,7 @@ def get_fantasy_league_tournament_schedule(fantasy_league_season_id):
 
     if tournaments:
         # Convert each tournament to a dictionary
-        tournament_dicts = [Tournament(**tournament).to_dict() for tournament in tournaments]
-
-        for tournament_dict in tournament_dicts:
-            if tournament_dict["IsCompleted"]:
-
-                winner = db.golfertournamentdetails.find_one({
-                    "TournamentId": ObjectId(tournament_dict["id"]),
-                    "Position": "1"
-                })
-
-                tournament_dict["Winner"] = winner["Name"] + " " + f'({str(winner["Score"])})'
-            else:
-                previous_winner = db.golfers.find_one({
-                    "_id": ObjectId(tournament_dict["PreviousWinner"])
-                })
-
-                if previous_winner:
-                    tournament_dict["PreviousWinner"] = previous_winner["FirstName"] + " " + previous_winner["LastName"]
-                
-            if tournament_dict["Purse"] and tournament_dict["Purse"] > 0:
-                tournament_dict["Purse"] = tournament_dict["Purse"] // 1000000
-                tournament_dict["Purse"] = "$" + str(tournament_dict["Purse"]) + "M"
+        tournament_dicts = convert_to_tournament_dicts(tournaments)
 
         # Respond with the tournaments, or an empty array if none found
         return jsonify({"tournaments": tournament_dicts})
@@ -97,7 +76,7 @@ def get_full_fantasy_competition_schedule(fantasy_league_season_id):
     tournament_ids = fantasy_league_season.get("Tournaments", [])
 
     # Find all tournaments with IDs in the league season's tournaments list
-    fantasy_league_tournaments = db.tournaments.find({"_id": {"$in": [ObjectId(t_id) for t_id in tournament_ids]}}).sort("StartDate")
+    fantasy_league_tournaments = list(db.tournaments.find({"_id": {"$in": [ObjectId(t_id) for t_id in tournament_ids]}}).sort("StartDate"))
 
     current_date_time = datetime.utcnow()
 
@@ -113,11 +92,14 @@ def get_full_fantasy_competition_schedule(fantasy_league_season_id):
 
     offset = page * limit
 
+    pro_season_id = fantasy_league_tournaments[0]["ProSeasonId"]
+
     # Find upcoming pro season tournaments not in the fantasy league season
     upcoming_pro_season_tournaments = db.tournaments.find(
         {
             "_id": {"$nin": [ObjectId(t_id) for t_id in tournament_ids]},
-            "StartDate": {"$gt": current_date_time}
+            "StartDate": {"$gt": current_date_time},
+            "ProSeasonId": pro_season_id
         }
     ).sort("StartDate").skip(offset).limit(limit)
 

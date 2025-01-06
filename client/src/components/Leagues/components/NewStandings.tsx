@@ -14,7 +14,6 @@ import { ChartOptions } from "chart.js";
 import TableHeaders from "../../Utils/components/TableHeaders";
 import TeamData from "./TeamData";
 import { Team } from "../../../types/teams";
-import Button from "../../Utils/components/Button";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 

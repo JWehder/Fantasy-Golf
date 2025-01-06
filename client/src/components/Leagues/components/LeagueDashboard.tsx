@@ -23,7 +23,6 @@ import { setActiveComponent, getLeague } from '../state/leagueSlice';
 import LoadingScreen from '../../Utils/components/LoadingScreen';
 import { setSelectedGolfer } from '../../Golfers/state/golferSlice';
 import { useFetchAvailableGolfers } from '../../../hooks/golfers';
-useFetchAvailableGolfers
 
 export default function LeagueDashboard() {
     const dispatch = useDispatch<AppDispatch>();
@@ -49,7 +48,7 @@ export default function LeagueDashboard() {
 
     useEffect(() => {
         if (leagueId && !leagueTeams.length) {
-            dispatch(getLeague(leagueId))
+            dispatch(getLeague(leagueId));
         };
 
     }, [leagueId]);
@@ -63,10 +62,6 @@ export default function LeagueDashboard() {
     const goToSettings = () => {
         // Append "/settings" to the current path
         navigate(`${location.pathname}/settings`);
-    };
-
-    if (!selectedLeague) {
-        return <LoadingScreen />
     };
 
     // Fetch upcoming periods
@@ -89,6 +84,10 @@ export default function LeagueDashboard() {
         isError: isGolferError,
         error: golferError,
     } = useFetchAvailableGolfers(leagueId!);
+
+    if (!selectedLeague) {
+        return <LoadingScreen />
+    };
   
     const handleGolferClick = (golfer: object) => {
       dispatch(setSelectedGolfer(golfer));
@@ -96,6 +95,11 @@ export default function LeagueDashboard() {
   
     const onAddClick = (golferId: string) => {
       console.log(golferId);
+    };
+
+    const goToNextSeasonPage = () => {
+        // Append "/settings" to the current path
+        navigate(`${location.pathname}/go_to_next_season`);
     };
 
     // Map React Query data to match the expected prop structure
@@ -108,6 +112,7 @@ export default function LeagueDashboard() {
 
     return (
         <div className='flex justify-center items-center w-full flex-col min-w-[950px] bg-dark'>
+
             <div className='flex-row h-16 w-11/12 mb-5 flex items-center text-light font-PTSans pt-3 min-w-[850px]'>
                 <div className='flex flex-col w-1/3'>
                     <div className='flex justify-center items-center flex-row'>
@@ -149,8 +154,22 @@ export default function LeagueDashboard() {
                         Settings
                     </Button>
                 </div>
-
             </div>
+            <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4'>
+                <span className='font-PTSans text-light'>
+                    Your season is over 😕 
+                </span>
+                <Button
+                    variant="secondary"
+                    type="null"
+                    disabled={false}
+                    size="md"
+                    onClick={goToNextSeasonPage}
+                    >
+                        Play again?
+                </Button>
+            </div>
+
             <div className='w-10/12 rounded-lg spy-3 flex-grow shrink flex-row h-full max-h-[calc(100vh-225px)] overflow-auto bg-grass-gradient'> 
                 { activeComponent === "Standings" && 
                     <NewStandings 
@@ -193,6 +212,7 @@ export default function LeagueDashboard() {
                     />
                 }
             </div>
+            
             { selectedGolfer ?
                 <Modal 
                 open={open} 

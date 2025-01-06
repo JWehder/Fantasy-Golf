@@ -255,7 +255,7 @@ const LeagueSettingsPage: React.FC = () => {
 
         {/* Tabs for Navigation */}
         <div className="flex justify-center mb-6 text-light space-x-2">
-            {["General", "Draft", "Scoring", "Team Management", "Tournaments"].map((tab) => (
+            {["General", "Draft", "Scoring", "Team Management", "Tournaments", "Teams"].map((tab) => (
             <button
                 key={tab}
                 onClick={() => setCurrentTab(tab)}
