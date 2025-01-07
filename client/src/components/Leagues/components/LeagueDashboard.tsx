@@ -99,7 +99,7 @@ export default function LeagueDashboard() {
 
     const goToNextSeasonPage = () => {
         // Append "/settings" to the current path
-        navigate(`${location.pathname}/go_to_next_season`);
+        navigate(`${location.pathname}/settings`);
     };
 
     // Map React Query data to match the expected prop structure
@@ -155,10 +155,13 @@ export default function LeagueDashboard() {
                     </Button>
                 </div>
             </div>
-            <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4'>
+            { selectedLeague.IsCommish ?
+            (
+                <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4'>
                 <span className='font-PTSans text-light'>
                     Your season is over 😕 
                 </span>
+
                 <Button
                     variant="secondary"
                     type="null"
@@ -168,8 +171,11 @@ export default function LeagueDashboard() {
                     >
                         Play again?
                 </Button>
-            </div>
-
+                </div>
+            )
+            :
+            ""
+            }
             <div className='w-10/12 rounded-lg spy-3 flex-grow shrink flex-row h-full max-h-[calc(100vh-225px)] overflow-auto bg-grass-gradient'> 
                 { activeComponent === "Standings" && 
                     <NewStandings 

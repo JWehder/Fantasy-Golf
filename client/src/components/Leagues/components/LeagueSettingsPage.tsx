@@ -236,6 +236,12 @@ const LeagueSettingsPage: React.FC = () => {
   <div className="w-full min-h-screen bg-gradient-to-b from-dark to-middle text-light flex flex-col items-center font-PTSans p-3 min-w-[570px]">
       <div className="w-full max-w-4xl bg-middle p-6 rounded-lg shadow-xl font-PTSans items-center">
 
+      <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4'>
+        <span className='font-PTSans text-light'>
+            New season has been created. Please add tournaments. 
+        </span>
+      </div>
+
       <div className="flex flex-row items-center p-4 w-full">
         <div className="flex justify-start w-1/3">
           <BackButton
@@ -263,7 +269,7 @@ const LeagueSettingsPage: React.FC = () => {
                 currentTab === tab ? "bg-dark text-light" : "bg-light text-dark hover:brightness-125"
                 }`}
             >
-                {tab}
+                {tab} ❗ 
             </button>
             ))}
         </div>

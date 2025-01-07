@@ -17,6 +17,10 @@ from helper_methods import convert_utc_to_local, get_day_number
 from config import db
 from models.base_model import Base
 
+class FantasyLeagueSeasonNotFoundError(Exception):
+    """Custom exception for missing fantasy league season."""
+    pass
+
 FantasyLeagueSeason = Any  # Temporary alias to avoid circular dependency
 Tournament = Any  # Temporary alias to avoid circular dependency
 Period = Any  # Temporary alias to avoid circular dependency
@@ -26,7 +30,6 @@ class League(Base):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
     Name: str
     CommissionerId: PyObjectId
-    Teams: List[PyObjectId] = []
     LeagueSettings: Optional[Dict]
     FantasyLeagueSeasons: Optional[List[PyObjectId]] = []
     CurrentFantasyLeagueSeasonId: Optional[PyObjectId] = None
@@ -52,6 +55,10 @@ class League(Base):
             if current_season:
                 return FantasyLeagueSeason(**current_season)
         return None
+
+    def get_current_leagues_teams(self):
+        teams = db.teams.find({"FantasyLeagueSeasonId": ObjectId(self.CurrentFantasyLeagueSeasonId)})
+        return list(teams)
 
     def determine_current_fantasy_league_season(self) -> Optional[ObjectId]:
         current_date = datetime.now()
@@ -210,7 +217,9 @@ class League(Base):
 
             if today_day_number > drop_day_number:
                 period = self.get_most_recent_period()
-                for id in self.Teams:
+                teams = self.get_current_leagues_teams()
+                team_ids = [team["_id"] for team in teams]
+                for id in team_ids:
                     # force drop players if the team owner has not to do so
                     # according to the league settings force drop rules
                     while period.Drops[id] < self.LeagueSettings.ForceDrops:
@@ -218,7 +227,7 @@ class League(Base):
                         self.remove_lowest_ogwr_golfer(id)
 
     def generate_matchups(self, period: "Period") -> List[Tuple[PyObjectId, PyObjectId]]:
-        teams = self.Teams[:]
+        teams = self.get_current_leagues_teams()
         random.shuffle(teams)
         matchups = []
 
@@ -260,22 +269,26 @@ class League(Base):
         num_of_teams = league_settings["NumberOfTeams"]
         team_ids = []
 
-        for i in range(num_of_teams):
-            team = Team(
-                TeamName=f"Team {i+1}",
-                ProfilePicture="",
-                Golfers={},
-                OwnerId=None,
-                LeagueId=self.id,
-                DraftPicks={},
-                Points=0,
-                FAAB=0,
-                WaiverNumber=0
-            )
-            team.save()
-            team_ids.append(team.id)
-        
-        self.Teams = team_ids
+        last_fantasy_league_season_id = self.FantasyLeagueSeasons[-1]
+
+        if last_fantasy_league_season_id:
+            return False
+        else:
+            for i in range(num_of_teams):
+                team = Team(
+                    TeamName=f"Team {i+1}",
+                    ProfilePicture="",
+                    Golfers={},
+                    OwnerId=None,
+                    LeagueId=self.id,
+                    DraftPicks={},
+                    Points=0,
+                    FAAB=0,
+                    WaiverNumber=0
+                )
+                team.save()
+                team_ids.append(team.id)
+    
         self.CurrentStandings = team_ids
         self.save()
         return True
@@ -493,6 +506,11 @@ class League(Base):
 
         return first_draft_id
 
+    def transition_to_next_fantasy_league_season(self, new_fantasy_league_season_id):
+        self.CurrentFantasyLeagueSeasonId = new_fantasy_league_season_id
+        self.create_periods_between_tournaments()
+
+
     def determine_next_draft_order(self, next_period: Period):
         from models import Draft
 
@@ -548,10 +566,12 @@ class League(Base):
     def get_all_rostered_players(self):
         # Collect all rostered players
         rostered_players = set()
-        for team_id in self.Teams:
-            team = db.teams.find_one({
-                "_id": ObjectId(team_id)
-            })
+
+        teams = db.teams.find({
+            "FantasyLeagueSeasonId": ObjectId(self.CurrentFantasyLeagueSeasonId)
+        })
+
+        for team in teams:
 
             for golfer_id, golfer_info in team["Golfers"].items():
                 if golfer_info['CurrentlyOnTeam']:

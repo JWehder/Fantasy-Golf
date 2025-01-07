@@ -81,6 +81,32 @@ export const createLeague = createAsyncThunk<
   }
 );
 
+export const goToNextSeason = createAsyncThunk<
+  , // Return type of the thunk
+  { league: League }, // Payload type (single object with both arguments)
+  {
+    rejectValue: string; // Type of the value returned by `rejectWithValue`
+  }
+>(
+  "leagues/createLeague",
+  async ({ league }, thunkAPI) => {
+    if (!league) {
+      return thunkAPI.rejectWithValue("No league was received");
+    }
+    try {
+      const response: AxiosResponse<LeagueSettings> = await axios.post(
+        '/api/leagues',
+        league
+      );
+      return response.data; // Return the updated LeagueSettings
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
+    }
+  }
+);
+
 interface LeagueState {
     status: string;
     leagues: League[];
