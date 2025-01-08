@@ -137,7 +137,7 @@ class League(Base):
             return first_season_id
 
     def transition_to_next_season(self, tournaments: List[PyObjectId]) -> PyObjectId:
-        from models import FantasyLeagueSeason
+        from models import FantasyLeagueSeason, Team
         
         current_season = self.find_current_season()
         if not current_season:
@@ -172,11 +172,62 @@ class League(Base):
 
         next_season_id = next_season.save()
 
+        # Copy teams to the new season
+        teams = list(db.teams.find({"FantasyLeagueSeasonId": ObjectId(self.CurrentFantasyLeagueSeasonId)}))
+        for team_data in teams:
+            team_instance = Team(**team_data)
+            team_instance.id = None
+            team_instance.FantasyLeagueSeasonId = next_season_id  # Assign to new season
+            team_instance.Points = 0
+            team_instance.FAAB = 0
+            team_instance.WaiverNumber = 0
+            team_instance.TeamStats = {
+                "Wins": 0,
+                "TotalUnderPar": 0,
+                "AvgScore": 0,
+                "MissedCuts": 0,
+                "Top10s": 0,
+                "Placement": 0
+            }
+            team_instance.Golfers = {}  # Reset golfers
+            team_instance.created_at = None  # Reset creation time
+            team_instance.updated_at = None  # Reset updated time
+            
+            # Save the new team instance
+            team_instance.save()
+
         self.FantasyLeagueSeasons.append(next_season_id)
-        self.CurrentSeason = next_season_id
+        self.CurrentFantasyLeagueSeasonId = next_season_id
         self.save()
 
         return next_season_id
+
+    def transition_to_next_pro_season(self):
+        """update settings with next pro season"""
+
+        pro_season_id = self.LeagueSettings.ProSeasonId
+
+        previous_pro_season = db.proSeasons.find_one({
+            "_id": pro_season_id
+        })
+
+        pro_season_league_name = previous_pro_season["LeagueName"]
+        current_time = datetime.utcnow()
+
+        latest_pro_season = db.proSeasons.find_one({
+            "LeagueName": pro_season_league_name,
+            "StartDate": {"$lte": current_time},  # StartDate is less than or equal to the current time
+            "EndDate": {"$gte": current_time}     # EndDate is greater than or equal to the current time
+        })
+
+        if not latest_pro_season:
+            raise ValueError("No active pro season found for the specified league name")
+
+        self.LeagueSettings.ProSeasonId = latest_pro_season["_id"]
+
+        self.save()
+
+        return str(latest_pro_season["_id"])
 
     def remove_lowest_ogwr_golfer(team_id: PyObjectId) -> PyObjectId:
         # Find the team by ID
@@ -505,11 +556,6 @@ class League(Base):
         first_draft_id = first_draft.save()
 
         return first_draft_id
-
-    def transition_to_next_fantasy_league_season(self, new_fantasy_league_season_id):
-        self.CurrentFantasyLeagueSeasonId = new_fantasy_league_season_id
-        self.create_periods_between_tournaments()
-
 
     def determine_next_draft_order(self, next_period: Period):
         from models import Draft

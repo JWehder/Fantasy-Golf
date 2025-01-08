@@ -19,7 +19,7 @@ import NewStandings from "./NewStandings"
 import { setSelectedTeam } from '../../Teams/state/teamsSlice';
 import { Team } from '../../../types/teams';
 import { useFetchUpcomingPeriods } from '../../../hooks/periods';
-import { setActiveComponent, getLeague } from '../state/leagueSlice';
+import { setActiveComponent, getLeague, goToNextSeason } from '../state/leagueSlice';
 import LoadingScreen from '../../Utils/components/LoadingScreen';
 import { setSelectedGolfer } from '../../Golfers/state/golferSlice';
 import { useFetchAvailableGolfers } from '../../../hooks/golfers';
@@ -60,8 +60,11 @@ export default function LeagueDashboard() {
     }, [leagueTeams, user]);
 
     const goToSettings = () => {
-        // Append "/settings" to the current path
-        navigate(`${location.pathname}/settings`);
+        if (leagueId) {
+            dispatch(goToNextSeason(leagueId));
+            // Append "/settings" to the current path
+            navigate(`${location.pathname}/settings`);
+        };
     };
 
     // Fetch upcoming periods
@@ -155,7 +158,7 @@ export default function LeagueDashboard() {
                     </Button>
                 </div>
             </div>
-            { selectedLeague.IsCommish ?
+            { selectedLeague.IsCommish && !selectedLeague.ActiveFantasySeason ?
             (
                 <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4'>
                 <span className='font-PTSans text-light'>

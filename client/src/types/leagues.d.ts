@@ -13,5 +13,6 @@ interface League {
     WaiverOrder?: string[];
     created_at?: string;
     updated_at?: string;
-    IsCommish?: boolean
+    IsCommish?: boolean;
+    ActiveFantasySeason?: boolean;
 }

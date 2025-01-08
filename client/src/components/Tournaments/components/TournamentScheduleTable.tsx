@@ -2,7 +2,7 @@ import React from "react";
 import TableRow from "../../Utils/components/TableRow";
 import { Tournament } from "../../../types/tournaments";
 import TableHeaders from "../../Utils/components/TableHeaders";
-import { useSettings } from "../../Leagues/settingsContext";
+import { useSettings } from "../../Leagues/state/settingsContext";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../../store";
 import { setSelectedTournament } from "../state/tournamentsSlice";

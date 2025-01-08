@@ -9,7 +9,7 @@ import { Tournament } from "../../../types/tournaments";
 import Tourney from "../../Tournaments/components/Tourney";
 import BackButton from "../../Utils/components/BackButton";
 import GolferTournamentDetailsTable from "../../Tournaments/components/GolferTournamentDetailsTable";
-import { SettingsProvider } from "../settingsContext";
+import { SettingsProvider } from "../state/settingsContext";
 import LoadingScreen from "../../Utils/components/LoadingScreen";
 import axios from "axios";
 import EditTournamentsButtons from "./EditTournamentsButtons";
@@ -30,6 +30,7 @@ const LeagueSettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<LeagueSettings | undefined>();
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const selectedLeague = useSelector((state: RootState) => state.leagues.selectedLeague);
+  const leaguesTeams = useSelector((state: RootState) => state.teams.leaguesTeams)
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [tournaments, setTournaments] = useState<FantasyLeagueTournamentsResponse | Tournament[]>();
 
@@ -48,57 +49,55 @@ const LeagueSettingsPage: React.FC = () => {
   useEffect(() => {
       if (isEditMode && !selectedLeague) {
         dispatch(getLeague(leagueId!));
-      }
-    }, [leagueId, isEditMode, dispatch, selectedLeague]);
-    
-    useEffect(() => {
-      if (isEditMode && selectedLeague) {
-        setSettings(selectedLeague.LeagueSettings);
-    
-        // Fetch associated tournaments
-        const fetchTournaments = async () => {
-          try {
-            const response = await axios.get(
-              `/api/fantasy_league_seasons/${selectedLeague.CurrentFantasyLeagueSeasonId}/pro_season/competition_schedule`
-            );
-            console.log(response.data)
-            setTournaments(response.data); // Assuming `setTournaments` exists for tournament state
-          } catch (error) {
-            console.error("Error fetching tournaments:", error);
-          }
-        };
-        fetchTournaments();
-      } 
-    }, [isEditMode, selectedLeague]);
-    
-    useEffect(() => {
-      const fetchData = async () => {
-        try {
-          let settingsResponse = isEditMode
-            ? selectedLeague?.LeagueSettings
-            : await axios.get('/default_league_settings').then((res) => res.data);
-    
-          const tournamentsResponse = await axios.get(
-            isEditMode
-              ? `/api/fantasy_league_seasons/${selectedLeague?.CurrentFantasyLeagueSeasonId}/pro_season/competition_schedule`
-              : `/api/pro_seasons/${settingsResponse.ProSeasonId}/competition_schedule`
-          );
-
-          let newSettingsResponse = { ...settingsResponse }
-          
-          // Apply default PointsPerScore if undefined or empty
-          if (!settingsResponse?.PointsPerScore || Object.keys(settingsResponse.PointsPerScore).length === 0) {
-            newSettingsResponse.PointsPerScore = defaultPointsPerScore
-          }
-          setSettings(newSettingsResponse);
-          setTournaments(tournamentsResponse.data);
-        } catch (error) {
-          console.error("Error fetching data:", error);
-        }
       };
+  }, [leagueId, isEditMode, dispatch, selectedLeague]);
     
-      fetchData();
-    }, [isEditMode, selectedLeague]);
+  // Fetch league settings (only when needed)
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        let settingsResponse = isEditMode
+          ? selectedLeague?.LeagueSettings
+          : await axios
+              .get(`/api/league_settings/default_settings/fantasy_games/Golf`)
+              .then((res) => res.data);
+
+        // Apply default PointsPerScore if undefined or empty
+        if (!settingsResponse?.PointsPerScore || Object.keys(settingsResponse.PointsPerScore).length === 0) {
+          settingsResponse = { ...settingsResponse, PointsPerScore: defaultPointsPerScore };
+        }
+
+        setSettings(settingsResponse);
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+      }
+    };
+
+    fetchSettings();
+  }, [isEditMode, selectedLeague]);
+
+  // Fetch tournaments only when necessary
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      if (!settings) return;
+
+      try {
+        const tournamentsResponse = await axios.get(
+          isEditMode
+            ? `/api/fantasy_league_seasons/${selectedLeague?.CurrentFantasyLeagueSeasonId}/pro_season/competition_schedule`
+            : `/api/pro_seasons/${settings?.ProSeasonId}/competition_schedule`
+        );
+
+        setTournaments(tournamentsResponse.data);
+      } catch (error) {
+        console.error("Error fetching tournaments:", error);
+      }
+    };
+
+    fetchTournaments();
+  }, [isEditMode, selectedLeague?.CurrentFantasyLeagueSeasonId, settings?.ProSeasonId]);
+
+  // fetch the users associated with this league
 
   const handleInputChange = (field: keyof LeagueSettings | PointsPerScoreArgs, value: any) => {
     if (!settings) return;
@@ -125,7 +124,6 @@ const LeagueSettingsPage: React.FC = () => {
           },
         };
       });
-      
 
     } else {
       // Set error if validation fails
@@ -233,8 +231,8 @@ const LeagueSettingsPage: React.FC = () => {
   };
 
   return (
-  <div className="w-full min-h-screen bg-gradient-to-b from-dark to-middle text-light flex flex-col items-center font-PTSans p-3 min-w-[570px]">
-      <div className="w-full max-w-4xl bg-middle p-6 rounded-lg shadow-xl font-PTSans items-center">
+  <div className="text-light w-full bg-dark flex flex-col items-center font-PTSans p-3 min-w-[570px] max-h-[calc(100vh-100px)] ">
+      <div className="w-10/12 bg-middle p-6 rounded-lg shadow-xl font-PTSans items-center overflow-auto">
 
       <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4'>
         <span className='font-PTSans text-light'>
@@ -261,18 +259,28 @@ const LeagueSettingsPage: React.FC = () => {
 
         {/* Tabs for Navigation */}
         <div className="flex justify-center mb-6 text-light space-x-2">
-            {["General", "Draft", "Scoring", "Team Management", "Tournaments", "Teams"].map((tab) => (
+          {[
+            "General",
+            "Draft",
+            "Scoring",
+            "Team Management",
+            "Tournaments",
+            ...(selectedLeague?.IsCommish ? ["Users"] : []), // Add the "Users" tab conditionally
+          ].map((tab) => (
             <button
-                key={tab}
-                onClick={() => setCurrentTab(tab)}
-                className={`px-4 py-2 rounded-t-lg text-sm sm:text-xs md:text-sm lg:text-sm  ${
-                currentTab === tab ? "bg-dark text-light" : "bg-light text-dark hover:brightness-125"
-                }`}
+              key={tab} // Ensure each tab has a unique key
+              onClick={() => setCurrentTab(tab)}
+              className={`px-4 py-2 rounded-t-lg text-sm sm:text-xs md:text-sm lg:text-sm ${
+                currentTab === tab
+                  ? "bg-dark text-light"
+                  : "bg-light text-dark hover:brightness-125"
+              }`}
             >
-                {tab} ❗ 
+              {tab}
             </button>
-            ))}
+          ))}
         </div>
+
 
         {/* Content */}
         {currentTab === "General" && (

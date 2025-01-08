@@ -41,12 +41,10 @@ export const App: React.FC<AppProps> = ({ children }) => {
   if (!clientId) return <LoadingScreen />
 
   return (
-    <div className='w-full h-screen relative'>
+    <div className=' bg-dark w-max relative min-h-[calc(100vh-200px)]'>
       <Header />
       <GoogleOAuthProvider clientId={clientId}>
-        <div className='w-full bg-dark h-screen'>
           <Outlet />
-        </div>
       </GoogleOAuthProvider>
     </div>
   ) 

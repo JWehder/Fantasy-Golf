@@ -113,4 +113,3 @@ def get_full_fantasy_competition_schedule(fantasy_league_season_id):
     return jsonify({"error": "Sorry, we could not find the tournaments you are looking for."}), 404
 
 
-    

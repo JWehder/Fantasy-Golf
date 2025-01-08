@@ -93,16 +93,17 @@ def get_teams_by_league_id(league_id):
         # Return a generic error response to the user
         return jsonify({"error": "An error occurred. Please try again later."}), 500
 
-@leagues_bp.route('/<league_id>/create_new_season', methods=['POST'])
+@leagues_bp.route('/<league_id>/fantasy_league_seasons/create_new_season', methods=['POST'])
 def create_new_season(league_id):
-    from models import FantasyLeagueSeason, Team
-    import datetime
     from bson import ObjectId
 
     user_id = session.get('user_id')
 
     # Fetch the league
     league = db.leagues.find_one({"_id": ObjectId(league_id)})
+
+    old_fantasy_league_season_id = league["CurrentFantasyLeagueSeasonId"]
+
     if not league:
         return {"error": "League not found"}, 404
 
@@ -111,62 +112,28 @@ def create_new_season(league_id):
         return {"error": f"You are unauthorized to access this action on {league_id}"}, 422
     
     league_instance = League(**league)
+
+    new_fantasy_league_season_id = league_instance.transition_to_next_season()
+
+    new_pro_season_id = league_instance.transition_to_next_pro_season()
+
+    if old_fantasy_league_season_id == new_fantasy_league_season_id:
+        return jsonify({
+            "error": "The old fantasy league season ID is the same as the new one. Unable to transition to the next season."
+        }), 400
     
-    # Fetch the current fantasy league season
+    # Test that the current fantasy league season was created and the new fantasy league season id is correct
     current_fantasy_league_season = db.fantasyLeagueSeasons.find_one({
         "_id": ObjectId(league_instance.CurrentFantasyLeagueSeasonId)
     })
+
     if not current_fantasy_league_season:
         return {"error": "Current fantasy league season not found"}, 404
 
-    fantasy_league_season_instance = FantasyLeagueSeason(**current_fantasy_league_season)
     
-    # Create a new fantasy league season
-    new_fantasy_league_season = FantasyLeagueSeason(
-        SeasonNumber=fantasy_league_season_instance.SeasonNumber + 1,
-        StartDate=None,  # Populate with actual start date
-        EndDate=None,  # Populate with actual end date
-        Periods=[],  # Reset periods
-        Tournaments=[],  # Reset tournaments
-        LeagueId=league_id,
-        Active=False,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-    )
-    new_fantasy_league_season_id = new_fantasy_league_season.save()
+    return {"message": "New fantasy league season created successfully", "newSeasonId": str(new_fantasy_league_season_id), "newProSeasonId": new_pro_season_id}, 201
     
-    # Copy teams to the new season
-    teams = list(db.teams.find({"FantasyLeagueSeasonId": ObjectId(league_instance.CurrentFantasyLeagueSeasonId)}))
-    for team_data in teams:
-        team_instance = Team(**team_data)
-        team_instance.id = None
-        team_instance.FantasyLeagueSeasonId = new_fantasy_league_season_id  # Assign to new season
-        team_instance.Points = 0
-        team_instance.FAAB = 0
-        team_instance.WaiverNumber = 0
-        team_instance.TeamStats = {
-            "Wins": 0,
-            "TotalUnderPar": 0,
-            "AvgScore": 0,
-            "MissedCuts": 0,
-            "Top10s": 0,
-            "Placement": 0
-        }
-        team_instance.Golfers = {}  # Reset golfers
-        team_instance.created_at = None  # Reset creation time
-        team_instance.updated_at = None  # Reset updated time
-        
-        # Save the new team instance
-        team_instance.save()
-
-    # Update the league's current fantasy league season ID
-    db.leagues.update_one(
-        {"_id": ObjectId(league_id)},
-        {"$set": {"CurrentFantasyLeagueSeasonId": new_fantasy_league_season_id}}
-    )
+@leagues_bp.route('/<league_id>/users', methods=['GET'])
+def get_leagues_users(league_id):
+    """determine the leagues users"""
     
-    return {"message": "New fantasy league season created successfully", "newSeasonId": str(new_fantasy_league_season_id)}, 201
-    
-@leagues_bp.route('/create_league', methods=['POST'])
-def create_league():
-    pass

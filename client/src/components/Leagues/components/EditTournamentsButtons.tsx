@@ -2,7 +2,7 @@ import React from "react";
 import Button from "../../Utils/components/Button";
 import { Tournament } from "../../../types/tournaments";
 import axios from "axios";
-import { useSettings } from "../settingsContext";
+import { useSettings } from "../state/settingsContext";
 import { FantasyLeagueTournamentsResponse } from "../../../types/fantasyLeagueTournamentsResponse";
 
 interface EditTournamentsButtonsProps {

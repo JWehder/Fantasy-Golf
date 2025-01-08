@@ -4,6 +4,11 @@ import { League } from "../../../types/leagues";
 import { setLeagueTeams } from "../../Teams/state/teamsSlice"
 import { LeagueSettings } from "../../../types/leagueSettings";
 
+interface proSeasonChangeResponse {
+    proSeasonId: string,
+    newSeasonId: string
+}
+
 export const getLeague = createAsyncThunk<League, string>(
     "leagues/fetchLeagueById",
     async (league_id, thunkAPI) => {
@@ -82,27 +87,31 @@ export const createLeague = createAsyncThunk<
 );
 
 export const goToNextSeason = createAsyncThunk<
-  , // Return type of the thunk
-  { league: League }, // Payload type (single object with both arguments)
+  proSeasonChangeResponse, // Return type of the thunk
+  string, // Payload type (single object with both arguments)
   {
     rejectValue: string; // Type of the value returned by `rejectWithValue`
   }
 >(
-  "leagues/createLeague",
-  async ({ league }, thunkAPI) => {
-    if (!league) {
-      return thunkAPI.rejectWithValue("No league was received");
+  "leagues/goToNextSeason",
+  async (leagueId, thunkAPI) => {
+    if (!leagueId) {
+      return thunkAPI.rejectWithValue("No league ID was received");
     }
     try {
-      const response: AxiosResponse<LeagueSettings> = await axios.post(
-        '/api/leagues',
-        league
+      const response: AxiosResponse<proSeasonChangeResponse> = await axios.post(
+        `api/leagues/${leagueId}/fantasy_league_seasons/create_new_season`,
       );
       return response.data; // Return the updated LeagueSettings
     } catch (error) {
-      return thunkAPI.rejectWithValue(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
+        // Extract error details from the backend response
+        if (axios.isAxiosError(error) && error.response) {
+          const backendError = error.response.data.error || "An error occurred";
+          return thunkAPI.rejectWithValue(backendError);
+        }
+        return thunkAPI.rejectWithValue(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
     }
   }
 );
@@ -114,6 +123,7 @@ interface LeagueState {
     leagueError: string | null;
     leagueSettingsError: string | null;
     activeComponent: string;
+    goToNextSeasonError: string | null;
 }
 
 const initialState: LeagueState = {
@@ -122,7 +132,8 @@ const initialState: LeagueState = {
     selectedLeague: null,
     leagueError: null,
     leagueSettingsError: null,
-    activeComponent: "Schedule"
+    activeComponent: "Schedule",
+    goToNextSeasonError: null
 };
 
 const leagueSlice = createSlice({
@@ -176,6 +187,31 @@ const leagueSlice = createSlice({
             state.leagueSettingsError = null;
           })
         .addCase(updateLeagueSettings.rejected, (state, action) => {
+            state.status = "failed";
+            state.leagueError = action.error.message || "Failed to fetch league data";
+        })
+        .addCase(goToNextSeason.pending, (state) => {
+            state.status = "loading";
+            state.goToNextSeasonError = null;
+        })
+        .addCase(goToNextSeason.fulfilled, (state, action) => {
+            state.status = "succeeded";
+            if (!state.selectedLeague || !state.selectedLeague.id) {
+                state.goToNextSeasonError = "selectedLeague.id is unexpectedly undefined"
+                throw new Error("selectedLeague.id is unexpectedly undefined");
+            }
+            state.selectedLeague! = {
+                ...state.selectedLeague,
+                LeagueSettings: {
+                    ...state.selectedLeague.LeagueSettings,
+                    ProSeasonId: action.payload.proSeasonId
+                },
+                CurrentFantasyLeagueSeasonId: action.payload.newSeasonId,
+                id: state.selectedLeague.id // Ensure `id` is preserved
+            };
+            state.goToNextSeasonError = null;
+        })
+        .addCase(goToNextSeason.rejected, (state, action) => {
             state.status = "failed";
             state.leagueError = action.error.message || "Failed to fetch league data";
         })
