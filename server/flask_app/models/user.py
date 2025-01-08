@@ -32,6 +32,16 @@ class User(Base):
         allow_population_by_field_name = True
         json_encoders = {ObjectId: str}
 
+    def to_dict(self):
+        # Filter the dictionary to return only the necessary fields
+        user_dict = super().to_dict()
+        # Extract only the fields you want (id, Username, and Email)
+        return {
+            "id": str(self.id),
+            "Username": self.Username,
+            "Email": self.Email
+        }
+
     def save(self):
         """Insert or update a user"""
         self.updated_at = datetime.utcnow()

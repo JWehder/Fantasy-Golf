@@ -135,5 +135,51 @@ def create_new_season(league_id):
     
 @leagues_bp.route('/<league_id>/users', methods=['GET'])
 def get_leagues_users(league_id):
-    """determine the leagues users"""
-    
+    """Retrieve users associated with the current league."""
+    from models import User
+    from bson.objectid import ObjectId  # To validate ObjectId if needed
+
+    user_id = session.get('user_id')
+
+    # Validate the league_id
+    if not ObjectId.is_valid(league_id):
+        return jsonify({"error": "Invalid league ID."}), 400
+
+    # Fetch the league and ensure it exists
+    league = db.leagues.find_one({"_id": ObjectId(league_id)})
+    if not league:
+        return jsonify({"error": "League not found."}), 404
+
+    # Check if the user is authorized (is the commissioner)
+    if not user_id or ObjectId(user_id) != league.get("CommissionerId"):
+        return jsonify({"error": "You are unauthorized to view this content."}), 403
+
+    # Fetch the current teams in the league's season
+    current_teams = db.teams.find({
+        "FantasyLeagueSeasonId": league.get("CurrentFantasyLeagueSeasonId")
+    })
+
+    if not current_teams:
+        return jsonify({"error": "No teams found for the current fantasy league season."}), 404
+
+    try:
+        # Extract user IDs from teams
+        user_ids = [team.get("OwnerId") for team in current_teams if "OwnerId" in team]
+
+        # Fetch only username and email for the associated users
+        users = db.users.find(
+            {"_id": {"$in": [ObjectId(uid) for uid in user_ids]}}
+        )
+
+        # Convert users to a list of dictionaries
+        user_dicts = [User(**user).to_dict() for user in users]
+
+        if not user_dicts:
+            return jsonify({"error": "No users found for the associated teams."}), 404
+
+        return jsonify(user_dicts)
+
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred while processing your request: {str(e)}"}), 500
+

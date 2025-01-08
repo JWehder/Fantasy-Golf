@@ -15,6 +15,7 @@ import axios from "axios";
 import EditTournamentsButtons from "./EditTournamentsButtons";
 import { FantasyLeagueTournamentsResponse } from "../../../types/fantasyLeagueTournamentsResponse";
 import TimeZoneSelector from "./TimeZoneSelector";
+import UserManagement from "./UserManagement";
 
 interface PointsPerScoreArgs {
   name: string;
@@ -231,7 +232,7 @@ const LeagueSettingsPage: React.FC = () => {
   };
 
   return (
-  <div className="text-light w-full bg-dark flex flex-col items-center font-PTSans p-3 min-w-[570px] max-h-[calc(100vh-100px)] ">
+  <div className="text-light w-full bg-dark flex flex-col items-center font-PTSans p-3 min-w-[570px] max-h-[calc(100vh-100px)]">
       <div className="w-10/12 bg-middle p-6 rounded-lg shadow-xl font-PTSans items-center overflow-auto">
 
       <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4'>
@@ -499,6 +500,12 @@ const LeagueSettingsPage: React.FC = () => {
                 <LoadingScreen />
                 )
             )}
+            { currentTab === "Users" &&
+            <UserManagement 
+            isCommish={selectedLeague?.IsCommish || false}
+            leagueId={leagueId || ""}
+            />
+            }
         </div>
 
 
