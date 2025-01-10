@@ -41,7 +41,7 @@ export default function Roster({
     const headers = ["Rank", "Golfer", "Avg Score", "Top 10s", "Wins", "Cuts Made", "Fedex Pts"]
 
     return (
-        <div className="w-full min-h-screen bg-dark text-light flex flex-col items-center font-PTSans">
+        <div className="w-full bg-dark text-light flex flex-col items-center font-PTSans">
             <div className="w-full max-w-5xl bg-middle my-4 p-4 rounded-md shadow-lg">
                 { userSelectedTeam ?
                     <>

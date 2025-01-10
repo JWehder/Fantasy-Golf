@@ -50,8 +50,8 @@ class League(Base):
 
         from models import FantasyLeagueSeason
 
-        if self.CurrentFantasyLeagueSeason:
-            current_season = db.fantasyLeagueSeasons.find_one({"_id": self.CurrentFantasyLeagueSeason})
+        if self.CurrentFantasyLeagueSeasonId:
+            current_season = db.fantasyLeagueSeasons.find_one({"_id": self.CurrentFantasyLeagueSeasonId})
             if current_season:
                 return FantasyLeagueSeason(**current_season)
         return None
@@ -136,27 +136,51 @@ class League(Base):
 
             return first_season_id
 
-    def transition_to_next_season(self, tournaments: List[PyObjectId]) -> PyObjectId:
+    def transition_to_next_season(self) -> PyObjectId:
         from models import FantasyLeagueSeason, Team
         
+        # Step 1: Find the current season
         current_season = self.find_current_season()
+
+        current_pro_season_name = db.proSeasons.find_one(
+            {"_id": ObjectId(current_season.ProSeasonId)},  # Match the ProSeasonId
+            {"LeagueName": 1}  # Project only the LeagueName field
+        )
+
+        # ensure there's a pro season with tournaments to renew to
+        upcoming_or_ongoing_pro_season = db.proSeasons.find_one(
+        {"EndDate": {"$gt": datetime.utcnow()}, "LeagueName": current_pro_season_name}
+        )
+
+        if not upcoming_or_ongoing_pro_season or len(upcoming_or_ongoing_pro_season["Tournaments"]) > 0:
+            raise ValueError("There is not an upcoming season or there are not any upcoming tournaments.")
+
         if not current_season:
             raise ValueError("Current season not found.")
-
+        
+        # Step 2: Deactivate the current season
         current_season.Active = False
         current_season.save()
-
-        if not tournaments:
-            raise ValueError("No tournaments specified for the next season.")
-
+        
+        # Step 3: Determine the next fantasy season number
         next_season_number = current_season.SeasonNumber + 1
-        tournament_docs = list(db.tournaments.find({"_id": {"$in": tournaments}}))
-        if not tournament_docs:
-            raise ValueError("Could not find the specified tournaments in the database.")
 
-        tournament_docs = sorted(tournament_docs, key=lambda x: x["StartDate"])
-        first_tournament_doc = tournament_docs[0]
-        last_tournament_doc = tournament_docs[-1]
+        # Step 4: Fetch tournaments from the current season
+        prior_tournament_ids = current_season.Tournaments
+        tournaments = db.tournaments.find({
+            "_id": {"$in": prior_tournament_ids},
+            "ProSeasonId": ObjectId(upcoming_or_ongoing_pro_season["_id"]),
+            "StartDate": datetime.utcnow()
+        })
+        tournament_names = [tournament["Name"] for tournament in tournaments if "Name" in tournament]
+
+        # Step 5: Query for matching tournaments for the next season
+        matching_tournaments = list(db.tournaments.find({"Name": {"$in": tournament_names}}))
+        matching_tournament_ids = [tournament["_id"] for tournament in matching_tournaments]
+
+        # Step 6: Create the next season
+        first_tournament_doc = matching_tournaments[0]
+        last_tournament_doc = matching_tournaments[-1]
 
         next_season = FantasyLeagueSeason(
             SeasonNumber=next_season_number,
@@ -164,10 +188,11 @@ class League(Base):
             EndDate=last_tournament_doc["EndDate"],
             Periods=[],
             LeagueId=self.id,
-            Tournaments=tournaments,
+            Tournaments=matching_tournament_ids,
             Active=True,
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
+            ProSeasonId=upcoming_or_ongoing_pro_season["_id"]
         )
 
         next_season_id = next_season.save()

@@ -26,7 +26,6 @@ class Hole(Base):
     Albatross: bool
     DoubleBogey: bool
     WorseThanDoubleBogey: bool
-    NoScore: None
     GolferTournamentDetailsId: PyObjectId
     RoundId: PyObjectId
     created_at: Optional[datetime] = None
@@ -54,8 +53,8 @@ class Hole(Base):
     def strokes_must_be_positive(cls, v):
         if v == None:
             return v
-        if v < 1:
-            raise ValueError('Strokes must be at least 1')
+        if v < 0:
+            raise ValueError('Strokes cannot be a negative integer.')
         return v
 
     @field_validator('HoleNumber')

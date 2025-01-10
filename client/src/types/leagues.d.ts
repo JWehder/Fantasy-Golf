@@ -15,4 +15,5 @@ interface League {
     updated_at?: string;
     IsCommish?: boolean;
     ActiveFantasySeason?: boolean;
+    CanRenew: boolean;
 }

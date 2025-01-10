@@ -84,6 +84,13 @@ def get_teams_by_league_id(league_id):
                 else:
                     league_dict["ActiveFantasySeason"] = current_fantasy_league_season["Active"]
 
+        upcoming_or_ongoing_pro_season = db.proSeasons.find_one(
+            {"EndDate": {"$gt": datetime.utcnow()}, "LeagueName": pro_season_name}
+        )
+
+        # is the league renewable or not yet based on if there's a pro season to renew into.
+        league_dict["CanRenew"] = bool(upcoming_or_ongoing_pro_season)
+
         return jsonify(league_dict), 200
     except Exception as e:
         # Log the exception traceback for debugging purposes
@@ -99,6 +106,8 @@ def create_new_season(league_id):
 
     user_id = session.get('user_id')
 
+    print(user_id)
+
     # Fetch the league
     league = db.leagues.find_one({"_id": ObjectId(league_id)})
 
@@ -107,7 +116,7 @@ def create_new_season(league_id):
     if not league:
         return {"error": "League not found"}, 404
 
-    if league["OwnerId"] != user_id:
+    if league["CommissionerId"] != ObjectId(user_id):
         league_id = league["_id"]
         return {"error": f"You are unauthorized to access this action on {league_id}"}, 422
     
@@ -129,7 +138,6 @@ def create_new_season(league_id):
 
     if not current_fantasy_league_season:
         return {"error": "Current fantasy league season not found"}, 404
-
     
     return {"message": "New fantasy league season created successfully", "newSeasonId": str(new_fantasy_league_season_id), "newProSeasonId": new_pro_season_id}, 201
     

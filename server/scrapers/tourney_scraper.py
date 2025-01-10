@@ -12,6 +12,7 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException
 import pytz
 import sys
 import concurrent.futures
+from bson.objectid import ObjectId
 
 # Adjust the paths for MacOS
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -89,9 +90,8 @@ def parse_leaderboard(par, leaderboard, driver, specific_golfers=[]):
     golfers = []
 
     table_rows = competitors_table.find_elements(By.CSS_SELECTOR, "tr.PlayerRow__Overview")
-    
-    # Helper function to handle individual golfer processing
-    def process_golfer(row):
+
+    for row in table_rows:
         golfer_tournament_results = {
             "Position": None,
             "Name": None,
@@ -108,91 +108,65 @@ def parse_leaderboard(par, leaderboard, driver, specific_golfers=[]):
             "Cut": False
         }
 
-        # grab specifically the position element and assign it to the position key
+        # Position and Name
+        golfer_full_name = row.find_element(By.CSS_SELECTOR, "a.AnchorLink").text.split(' ')
+        golfer_tournament_results["Name"] = f"{golfer_full_name[0]} {' '.join(golfer_full_name[1:])}"
+
+        # determine if the golfertournamentdetails 
+
         golfer_tournament_results["Position"] = row.find_element(By.CSS_SELECTOR, "td.tl").text
 
-        # grab the golfers name element and assign it to the name key
-        golfer_full_name = row.find_element(By.CSS_SELECTOR, "a.AnchorLink").text.split(' ')
-        golfer_first_name = golfer_full_name[0]
-        golfer_last_name = " ".join(golfer_full_name[1:])
-        golfer_tournament_results["Name"] = golfer_first_name + " " + golfer_last_name
-
-        # If specific_golfers list is not empty and the current golfer is not in the list, skip this golfer
         if specific_golfers and golfer_tournament_results["Name"] not in specific_golfers:
-            return None
+            continue
 
-        # grab the remaining elements for other tournament data
+        # Other tournament data
         remaining = row.find_elements(By.CSS_SELECTOR, "td.Table__TD")
         int_fields = ["Score", "R1", "R2", "R3", "R4", "TotalStrokes"]
         for key, element in zip(golfer_tournament_results.keys(), remaining[1:]):
-            if key == "Score" and element.text == "WD":
-                golfer_tournament_results["WD"] = True
-                golfer_tournament_results["Cut"] = False
-            elif key == "Score" and element.text == "CUT":
-                golfer_tournament_results["Cut"] = True
-                golfer_tournament_results["WD"] = False
-            if key in int_fields:
+            if key == "Score" and element.text in ["WD", "CUT"]:
+                golfer_tournament_results["WD"] = element.text == "WD"
+                golfer_tournament_results["Cut"] = element.text == "CUT"
+                golfer_tournament_results[key] = 0
+            elif key in int_fields:
                 try:
                     golfer_tournament_results[key] = int(element.text)
                 except ValueError:
-                    golfer_tournament_results[key] = element.text
+                    golfer_tournament_results[key] = 0
             else:
                 golfer_tournament_results[key] = element.text
 
-        # Earnings processing
+        # Earnings
         golfer_tournament_results['Earnings'] = ''.join(re.findall(r'(\d+)', golfer_tournament_results['Earnings'])) if golfer_tournament_results['Earnings'] else ''
 
-        # Scroll to the element and click to reveal more details
+        # Reveal and parse round details
         actions = ActionChains(driver)
         actions.move_to_element(row).perform()
         row.click()
 
         try:
-            # Wait for the player detail section to be visible
             player_detail = WebDriverWait(driver, 8).until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, "div.Leaderboard__Player__Detail"))
             )
-
             select_button = player_detail.find_element(By.CSS_SELECTOR, "select.dropdown__select")
             select = Select(select_button)
 
-            # Parse round details
-            round_detail = parse_round_details(player_detail, select.options[0].text, golfer_tournament_results["WD"], par)
-            golfer_tournament_results['Rounds'].append(round_detail)
-
-            for option in select.options[1:]:
+            # Parse rounds
+            for option in select.options:
                 select.select_by_visible_text(option.text)
                 round_detail = parse_round_details(player_detail, option.text, golfer_tournament_results["WD"], par)
                 golfer_tournament_results['Rounds'].append(round_detail)
 
             golfer_tournament_results['Score'] = determine_score_from_rounds(golfer_tournament_results["Rounds"])
 
-            print(golfer_tournament_results["Name"], golfer_tournament_results["Score"])
-
         except NoSuchElementException:
             print(f"No select dropdown found for player {golfer_tournament_results['Name']}")
-
         finally:
-            row.click()  # Close the player detail by clicking again
-
-            # Wait for the page to update before continuing
+            row.click()  # Close the player detail section
             WebDriverWait(driver, 2).until_not(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, "div.Leaderboard__Player__Detail"))
             )
 
-        return golfer_tournament_results
-
-    # Use ThreadPoolExecutor to process golfers in parallel
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for row in table_rows:
-            futures.append(executor.submit(process_golfer, row))
-
-        # Collect the results as they finish
-        for future in concurrent.futures.as_completed(futures):
-            golfer_result = future.result()
-            if golfer_result:  # Avoid adding None results
-                golfers.append(golfer_result)
+        golfers.append(golfer_tournament_results)
 
     return golfers
 
@@ -249,7 +223,6 @@ def parse_round_details(player_detail, round_text, wd_bool, par):
     bogey = net_scores == 1
     double_bogey = net_scores == 2
     worse_than_double_bogey = net_scores > 2
-    no_score = np.isnan(net_scores)
 
     # Initialize lists to store hole results and update round totals
     round_detail["Holes"] = []
@@ -266,8 +239,8 @@ def parse_round_details(player_detail, round_text, wd_bool, par):
         score = None if np.isnan(strokes) or np.isnan(par_score) else int(strokes - par_score)
 
         hole_result = {
-            'Strokes': int(strokes) if not np.isnan(strokes) else None,
-            'HolePar': int(par_score) if not np.isnan(par_score) else None,
+            'Strokes': int(strokes) if not np.isnan(strokes) else 0,
+            'HolePar': int(par_score) if not np.isnan(par_score) else 0,
             'NetScore': score,
             "HoleNumber": hole,
             'Birdie': birdie[i-1],
@@ -277,7 +250,6 @@ def parse_round_details(player_detail, round_text, wd_bool, par):
             'Albatross': albatross[i-1],
             'DoubleBogey': double_bogey[i-1],
             'WorseThanDoubleBogey': worse_than_double_bogey[i-1],
-            'NoScore': no_score[i-1]
         }
 
         round_detail["Holes"].append(hole_result)
@@ -546,14 +518,36 @@ def get_tournament_data(schedule_link: str):
 
 if __name__ == "__main__":
 
-    # Define the cutoff date
-    cutoff_date = datetime(2024, 12, 11)
+    # Define the current date
+    current_date = datetime.now()
 
-    # Query tournaments that ended before August 21
-    tournaments = db.tournaments.find({
-        "EndDate": {"$lt": cutoff_date},
-        "Golfers": []
-    })
+    # Define the cutoff date
+    cutoff_date = datetime(2025, 1, 8)
+
+    # Query tournaments that ended before the cutoff date and have no associated golfertournamentdetails
+    pipeline = [
+        {
+            "$match": {
+                "EndDate": {"$lt": cutoff_date}
+            }
+        },
+        {
+            "$lookup": {
+                "from": "golfertournamentdetails",  # The name of the other collection
+                "localField": "_id",  # The field in the tournaments collection
+                "foreignField": "TournamentId",  # The field in golfertournamentdetails that references tournaments
+                "as": "details"  # The name of the array field to store the joined results
+            }
+        },
+        {
+            "$match": {
+                "details": {"$size": 0}  # Keep only tournaments with no associated details
+            }
+        }
+    ]
+
+    # Execute the aggregation pipeline
+    tournaments = list(db.tournaments.aggregate(pipeline))
 
     options = Options()
 
@@ -569,8 +563,13 @@ if __name__ == "__main__":
     driver = wd
 
     for tournament in tournaments:
+        # Remove "details" before updating the document
+        tournament.pop("details", None)
+
         # Load page
         driver.get(tournament['Links'][0])
+
+        print(tournament['Links'][0])
 
         if not tournament["Purse"] or not tournament["PreviousWinner"] or not tournament["Par"] or not tournament["Yardage"]:
             tourney_header_data = parse_tournament_header(driver)
@@ -585,6 +584,12 @@ if __name__ == "__main__":
             db.tournaments.update_one(
                 {"_id": tournament["_id"]},  # Filter by the tournament ID
                 {"$set": tournament}          # Update the tournament document with new values
+            )
+        
+        if tournament["StartDate"] > current_date:
+            db.tournaments.update_one(
+                {"_id": tournament["_id"]},
+                {"$set": {"InProgress": False, "IsCompleted": True}}   
             )
 
         competitors_table = driver.find_element(By.CSS_SELECTOR, "div.competitors")

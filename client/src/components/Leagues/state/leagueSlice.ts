@@ -5,7 +5,7 @@ import { setLeagueTeams } from "../../Teams/state/teamsSlice"
 import { LeagueSettings } from "../../../types/leagueSettings";
 
 interface proSeasonChangeResponse {
-    proSeasonId: string,
+    newProSeasonId: string,
     newSeasonId: string
 }
 
@@ -100,7 +100,7 @@ export const goToNextSeason = createAsyncThunk<
     }
     try {
       const response: AxiosResponse<proSeasonChangeResponse> = await axios.post(
-        `api/leagues/${leagueId}/fantasy_league_seasons/create_new_season`,
+        `/api/leagues/${leagueId}/fantasy_league_seasons/create_new_season`,
       );
       return response.data; // Return the updated LeagueSettings
     } catch (error) {
@@ -124,6 +124,7 @@ interface LeagueState {
     leagueSettingsError: string | null;
     activeComponent: string;
     goToNextSeasonError: string | null;
+    goToNextSeasonSuccessBanner: boolean;
 }
 
 const initialState: LeagueState = {
@@ -133,7 +134,8 @@ const initialState: LeagueState = {
     leagueError: null,
     leagueSettingsError: null,
     activeComponent: "Schedule",
-    goToNextSeasonError: null
+    goToNextSeasonError: null,
+    goToNextSeasonSuccessBanner: false
 };
 
 const leagueSlice = createSlice({
@@ -204,16 +206,18 @@ const leagueSlice = createSlice({
                 ...state.selectedLeague,
                 LeagueSettings: {
                     ...state.selectedLeague.LeagueSettings,
-                    ProSeasonId: action.payload.proSeasonId
+                    ProSeasonId: action.payload.newProSeasonId
                 },
                 CurrentFantasyLeagueSeasonId: action.payload.newSeasonId,
                 id: state.selectedLeague.id // Ensure `id` is preserved
             };
+            state.goToNextSeasonSuccessBanner = true;
             state.goToNextSeasonError = null;
         })
         .addCase(goToNextSeason.rejected, (state, action) => {
             state.status = "failed";
-            state.leagueError = action.error.message || "Failed to fetch league data";
+            console.log(action)
+            state.goToNextSeasonError = action.payload || "Failed to transition to next season.";
         })
     }
 });

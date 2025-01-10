@@ -39,6 +39,7 @@ class Team(Base):
         "Top10s": 0
     })
     Placement: Optional[int]
+    FantasyLeagueSeasonId: PyObjectId
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

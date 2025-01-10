@@ -14,8 +14,6 @@ client = MongoClient(uri)
 db = client.scramble
 
 def delete_tournament_data(tournament_id):
-    tournament_id = ObjectId('66a6a29b27abbbf82b5c39c1')
-
     # Find all holes associated with the rounds
     round_cursor = db.rounds.find({ "TournamentId": tournament_id })
     
@@ -30,11 +28,8 @@ def delete_tournament_data(tournament_id):
     # Delete the golfer tournament details
     db.golfertournamentdetails.delete_many({ "TournamentId": tournament_id })
     
-    # Finally, delete the tournament itself
-    db.tournaments.delete_one({"_id": tournament_id})
-
 if __name__ == "__main__":
     # Replace 'your_tournament_id_here' with the actual tournament id
-    tournament_id = "your_tournament_id_here"
+    tournament_id = ObjectId('66a6cd266556c7133a4b2f06')# "your_tournament_id_here"
     delete_tournament_data(tournament_id)
     print(f"All data associated with the tournament {tournament_id} has been deleted.")

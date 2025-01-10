@@ -16,6 +16,7 @@ import EditTournamentsButtons from "./EditTournamentsButtons";
 import { FantasyLeagueTournamentsResponse } from "../../../types/fantasyLeagueTournamentsResponse";
 import TimeZoneSelector from "./TimeZoneSelector";
 import UserManagement from "./UserManagement";
+import NotificationBanner from "../../Utils/components/NotificationBanner";
 
 interface PointsPerScoreArgs {
   name: string;
@@ -26,6 +27,8 @@ const LeagueSettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { leagueId } = useParams<string>();
   const isEditMode = Boolean(leagueId);
+
+  const goToNextSeasonSuccessBanner = useSelector((state: RootState) => state.leagues.goToNextSeasonSuccessBanner)
 
   const [currentTab, setCurrentTab] = useState<string>("General");
   const [settings, setSettings] = useState<LeagueSettings | undefined>();
@@ -235,12 +238,6 @@ const LeagueSettingsPage: React.FC = () => {
   <div className="text-light w-full bg-dark flex flex-col items-center font-PTSans p-3 min-w-[570px] max-h-[calc(100vh-100px)]">
       <div className="w-10/12 bg-middle p-6 rounded-lg shadow-xl font-PTSans items-center overflow-auto">
 
-      <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4'>
-        <span className='font-PTSans text-light'>
-            New season has been created. Please add tournaments. 
-        </span>
-      </div>
-
       <div className="flex flex-row items-center p-4 w-full">
         <div className="flex justify-start w-1/3">
           <BackButton
@@ -281,7 +278,17 @@ const LeagueSettingsPage: React.FC = () => {
             </button>
           ))}
         </div>
-
+        
+        { goToNextSeasonSuccessBanner ?
+        <NotificationBanner
+        message={"New season has been created. Please add missing settings."}
+        variant="success"
+        timeout={10}
+        onClose={null}
+        />
+        :
+        ""
+        }
 
         {/* Content */}
         {currentTab === "General" && (

@@ -80,22 +80,21 @@ class FantasyLeagueSeason(Base):
             self.id = result.inserted_id
         return self.id
 
-    @field_validator('Tournaments')
-    def validate_tournament_start_dates(cls, tournament_ids_list):
-        current_date = datetime.now()
+    # @field_validator('Tournaments')
+    # def validate_tournament_start_dates(cls, tournament_ids_list):
+    #     current_date = datetime.now()
 
-        # Query the database for tournaments with the specified IDs
-        tournaments = db.tournaments.find({
-            "_id": {"$in": tournament_ids_list}
-        })
+    #     # Query the database for tournaments with the specified IDs
+    #     tournaments = db.tournaments.find({
+    #         "_id": {"$in": tournament_ids_list}
+    #     })
 
-        # Check if any tournament's start date is before today's date
-        for tournament in tournaments:
-            if "StartDate" in tournament and tournament["StartDate"] < current_date:
-                raise ValueError(f"Tournament {tournament['_id']} has a start date before today.")
+    #     # Check if any tournament's start date is before today's date
+    #     for tournament in tournaments:
+    #         if "StartDate" in tournament and tournament["StartDate"] < current_date:
+    #             raise ValueError(f"Tournament {tournament['_id']} has a start date before today.")
 
-        return tournament_ids_list
-
+    #     return tournament_ids_list
     
     @model_validator(mode='before')
     def validate_and_convert_dates(cls, values):

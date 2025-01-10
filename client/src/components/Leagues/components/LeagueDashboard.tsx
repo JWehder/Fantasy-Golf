@@ -23,6 +23,7 @@ import { setActiveComponent, getLeague, goToNextSeason } from '../state/leagueSl
 import LoadingScreen from '../../Utils/components/LoadingScreen';
 import { setSelectedGolfer } from '../../Golfers/state/golferSlice';
 import { useFetchAvailableGolfers } from '../../../hooks/golfers';
+import NotificationBanner from '../../Utils/components/NotificationBanner';
 
 export default function LeagueDashboard() {
     const dispatch = useDispatch<AppDispatch>();
@@ -32,7 +33,6 @@ export default function LeagueDashboard() {
     const location = useLocation();
 
     const [userSelectedTeam, setUserSelectedTeam] = useState<Team | null>(null);
-
     const selectedGolfer = useSelector((state: RootState) => state.golfers.selectedGolfer);
     const selectedLeague = useSelector((state: RootState) => state.leagues.selectedLeague);
 
@@ -40,6 +40,7 @@ export default function LeagueDashboard() {
     const leagueTeams = useSelector((state: RootState) => state.teams.leaguesTeams);
     const userTeam = useSelector((state: RootState) => state.teams.userSelectedTeam);
     const activeComponent = useSelector((state: RootState) => state.leagues.activeComponent);
+    const goToNextSeasonError = useSelector((state: RootState) => state.leagues.goToNextSeasonError);
 
     const onClose = () => {
         dispatch(resetSelectedGolfer());
@@ -60,11 +61,7 @@ export default function LeagueDashboard() {
     }, [leagueTeams, user]);
 
     const goToSettings = () => {
-        if (leagueId) {
-            dispatch(goToNextSeason(leagueId));
-            // Append "/settings" to the current path
-            navigate(`${location.pathname}/settings`);
-        };
+        navigate(`${location.pathname}/settings`);
     };
 
     // Fetch upcoming periods
@@ -100,9 +97,24 @@ export default function LeagueDashboard() {
       console.log(golferId);
     };
 
-    const goToNextSeasonPage = () => {
-        // Append "/settings" to the current path
-        navigate(`${location.pathname}/settings`);
+    const goToNextSeasonClick = async () => {
+        if (leagueId) {
+            try {
+                // Await the dispatch call to complete
+                const resultAction = await dispatch(goToNextSeason(leagueId));
+    
+                // Check if the action was fulfilled
+                if (goToNextSeason.fulfilled.match(resultAction)) {
+                    // Append "/settings" to the current path only on success
+                    navigate(`${location.pathname}/settings`);
+                } else if (goToNextSeason.rejected.match(resultAction)) {
+                    // Handle errors (e.g., show a toast notification or log it)
+                    console.error("Failed to go to the next season:", resultAction.payload);
+                }
+            } catch (error) {
+                console.error("An unexpected error occurred:", error);
+            }
+        }
     };
 
     // Map React Query data to match the expected prop structure
@@ -114,9 +126,20 @@ export default function LeagueDashboard() {
     const headers = ["Fedex Rank", "Golfer", "Avg Score", "Top 10s", "Wins", "Cuts Made", "Fedex Pts"];
 
     return (
-        <div className='flex justify-center items-center w-full flex-col min-w-[950px] bg-dark'>
+        <div className='flex justify-center items-center w-full flex-col min-w-[950px] bg-dark max-h-[calc(100vh-100px)]'>
 
-            <div className='flex-row h-16 w-11/12 mb-5 flex items-center text-light font-PTSans pt-3 min-w-[850px]'>
+            { goToNextSeasonError ?
+            <NotificationBanner
+            message={goToNextSeasonError}
+            variant="error"
+            timeout={10}
+            onClose={null}
+            />
+            :
+            ""      
+            }
+
+            <div className='flex-row h-16 w-11/12 mb-5 flex items-center text-light font-PTSans min-w-[850px]'>
                 <div className='flex flex-col w-1/3'>
                     <div className='flex justify-center items-center flex-row'>
                         <h1 className='text-xl lg:text-4xl md:text-2xl sm:text-xl'>
@@ -158,22 +181,22 @@ export default function LeagueDashboard() {
                     </Button>
                 </div>
             </div>
-            { selectedLeague.IsCommish && !selectedLeague.ActiveFantasySeason ?
+            { selectedLeague.IsCommish && !selectedLeague.ActiveFantasySeason && selectedLeague.CanRenew ?
             (
-                <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4'>
-                <span className='font-PTSans text-light'>
-                    Your season is over 😕 
-                </span>
+                <div className='w-full flex justify-center items-center space-x-2 bg-grass-gradient p-4 mb-2'>
+                    <span className='font-PTSans text-light'>
+                        Your season is over 😕 
+                    </span>
 
-                <Button
-                    variant="secondary"
-                    type="null"
-                    disabled={false}
-                    size="md"
-                    onClick={goToNextSeasonPage}
-                    >
-                        Play again?
-                </Button>
+                    <Button
+                        variant="secondary"
+                        type="null"
+                        disabled={false}
+                        size="md"
+                        onClick={goToNextSeasonClick}
+                        >
+                            Play again?
+                    </Button>
                 </div>
             )
             :
