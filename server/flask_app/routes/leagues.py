@@ -36,6 +36,8 @@ def get_teams_by_league_id(league_id):
             "_id": league["CurrentFantasyLeagueSeasonId"]
         })
 
+        league_dict = league_instance.to_dict()
+
         if len(current_fantasy_league_teams) > 1:
             team_dicts = []
 
@@ -50,15 +52,17 @@ def get_teams_by_league_id(league_id):
                 missing_ids = set(current_fantasy_league_season["Teams"]) - {team["_id"] for team in current_fantasy_league_teams}
                 return jsonify({"error": f'Some team IDs do not exist: {missing_ids}'}), 404
 
-            league_dict = league_instance.to_dict()
             league_dict["Teams"] = team_dicts
 
-        league_dict["IsCommish"] = session.get('user_id') == league_dict["CommissionerId"]
+        league_dict["IsCommish"] = session.get('user_id') == str(league_dict["CommissionerId"])
 
-        pro_season_id = league_dict["LeagueSettings"]["ProSeasonId"]
-        pro_season_name = db.proSeasons.find_one({"_id": ObjectId(pro_season_id)})["LeagueName"]
+        pro_season_id = current_fantasy_league_season["ProSeasonId"]
+        pro_season = db.proSeasons.find_one(
+            {"_id": ObjectId(pro_season_id)},
+            {"LeagueName": 1} 
+        )
 
-        league_dict["LeagueSettings"]["ProSeason"] = pro_season_name
+        league_dict["LeagueSettings"]["ProSeason"] = pro_season["LeagueName"]
 
         # Is the fantasy league season over? True or False
         # Will input into league_dict[FantasySeasonActive]
@@ -85,7 +89,7 @@ def get_teams_by_league_id(league_id):
                     league_dict["ActiveFantasySeason"] = current_fantasy_league_season["Active"]
 
         upcoming_or_ongoing_pro_season = db.proSeasons.find_one(
-            {"EndDate": {"$gt": datetime.utcnow()}, "LeagueName": pro_season_name}
+            {"EndDate": {"$gt": datetime.utcnow()}, "LeagueName": pro_season["LeagueName"]}
         )
 
         # is the league renewable or not yet based on if there's a pro season to renew into.
@@ -106,8 +110,6 @@ def create_new_season(league_id):
 
     user_id = session.get('user_id')
 
-    print(user_id)
-
     # Fetch the league
     league = db.leagues.find_one({"_id": ObjectId(league_id)})
 
@@ -124,8 +126,6 @@ def create_new_season(league_id):
 
     new_fantasy_league_season_id = league_instance.transition_to_next_season()
 
-    new_pro_season_id = league_instance.transition_to_next_pro_season()
-
     if old_fantasy_league_season_id == new_fantasy_league_season_id:
         return jsonify({
             "error": "The old fantasy league season ID is the same as the new one. Unable to transition to the next season."
@@ -136,10 +136,12 @@ def create_new_season(league_id):
         "_id": ObjectId(league_instance.CurrentFantasyLeagueSeasonId)
     })
 
+    league_instance.create_periods_between_tournaments()
+
     if not current_fantasy_league_season:
         return {"error": "Current fantasy league season not found"}, 404
     
-    return {"message": "New fantasy league season created successfully", "newSeasonId": str(new_fantasy_league_season_id), "newProSeasonId": new_pro_season_id}, 201
+    return {"message": "New fantasy league season created successfully", "newSeasonId": str(new_fantasy_league_season_id), }, 201
     
 @leagues_bp.route('/<league_id>/users', methods=['GET'])
 def get_leagues_users(league_id):

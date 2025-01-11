@@ -13,6 +13,7 @@ import {
 import { ChartOptions } from "chart.js";
 import TableHeaders from "../../Utils/components/TableHeaders";
 import TeamData from "./TeamData";
+import axios from "axios";
 import { Team } from "../../../types/teams";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);

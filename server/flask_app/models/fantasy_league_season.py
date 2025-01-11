@@ -27,6 +27,7 @@ class FantasyLeagueSeason(Base):
     Winner: PyObjectId = Field(default=None, description="Winner user ObjectId of the league")
     CurrentStandings: List[PyObjectId] = Field(default=[], description="Array of teams sorted by the number of points they have or wins and losses.")
     Teams: List[PyObjectId] = []
+    ProSeasonId: PyObjectId
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

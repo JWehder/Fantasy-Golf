@@ -68,8 +68,8 @@ class League(Base):
             season = db.fantasyleagueseasons.find_one({"_id": season_id})
 
             if season:
-                start_date = season.get("startdate")
-                end_date = season.get("enddate")
+                start_date = season.get("StartDate")
+                end_date = season.get("EndDate")
 
                 if start_date <= current_date <= end_date:
                     # Update the league with the current FantasyLeagueSeasonId
@@ -142,17 +142,17 @@ class League(Base):
         # Step 1: Find the current season
         current_season = self.find_current_season()
 
-        current_pro_season_name = db.proSeasons.find_one(
-            {"_id": ObjectId(current_season.ProSeasonId)},  # Match the ProSeasonId
+        current_pro_season = db.proSeasons.find_one(
+            {"_id": current_season.ProSeasonId},  # Match the ProSeasonId
             {"LeagueName": 1}  # Project only the LeagueName field
         )
 
         # ensure there's a pro season with tournaments to renew to
         upcoming_or_ongoing_pro_season = db.proSeasons.find_one(
-        {"EndDate": {"$gt": datetime.utcnow()}, "LeagueName": current_pro_season_name}
+        {"EndDate": {"$gt": datetime.utcnow()}, "LeagueName": current_pro_season["LeagueName"]}
         )
 
-        if not upcoming_or_ongoing_pro_season or len(upcoming_or_ongoing_pro_season["Tournaments"]) > 0:
+        if not upcoming_or_ongoing_pro_season or not len(upcoming_or_ongoing_pro_season["Competitions"]) > 0:
             raise ValueError("There is not an upcoming season or there are not any upcoming tournaments.")
 
         if not current_season:
@@ -168,14 +168,16 @@ class League(Base):
         # Step 4: Fetch tournaments from the current season
         prior_tournament_ids = current_season.Tournaments
         tournaments = db.tournaments.find({
-            "_id": {"$in": prior_tournament_ids},
-            "ProSeasonId": ObjectId(upcoming_or_ongoing_pro_season["_id"]),
-            "StartDate": datetime.utcnow()
+            "_id": {"$in": prior_tournament_ids}
         })
         tournament_names = [tournament["Name"] for tournament in tournaments if "Name" in tournament]
 
         # Step 5: Query for matching tournaments for the next season
-        matching_tournaments = list(db.tournaments.find({"Name": {"$in": tournament_names}}))
+        matching_tournaments = list(db.tournaments.find({
+            "Name": {"$in": tournament_names},
+            "ProSeasonId": upcoming_or_ongoing_pro_season["_id"],
+            "StartDate": {"$gt": datetime.utcnow()}
+        }))
         matching_tournament_ids = [tournament["_id"] for tournament in matching_tournaments]
 
         # Step 6: Create the next season
@@ -200,25 +202,27 @@ class League(Base):
         # Copy teams to the new season
         teams = list(db.teams.find({"FantasyLeagueSeasonId": ObjectId(self.CurrentFantasyLeagueSeasonId)}))
         for team_data in teams:
-            team_instance = Team(**team_data)
-            team_instance.id = None
-            team_instance.FantasyLeagueSeasonId = next_season_id  # Assign to new season
-            team_instance.Points = 0
-            team_instance.FAAB = 0
-            team_instance.WaiverNumber = 0
-            team_instance.TeamStats = {
-                "Wins": 0,
-                "TotalUnderPar": 0,
-                "AvgScore": 0,
-                "MissedCuts": 0,
-                "Top10s": 0,
-                "Placement": 0
+            new_team_dict = {
+                "TeamName": team_data["TeamName"],
+                "ProfilePicture": team_data["ProfilePicture"],
+                "Golfers": {},
+                "OwnerId": team_data["OwnerId"],
+                "LeagueId": team_data["LeagueId"],
+                "Points": 0,
+                "FAAB": 0,
+                "WaiverNumber": 0,
+                "TeamStats": {
+                    "Wins": 0,
+                    "TotalUnderPar": 0,
+                    "AvgScore": 0.00,
+                    "MissedCuts": 0,
+                    "Top10s": 0
+                },
+                "Placement": team_data["Placement"],
+                "FantasyLeagueSeasonId": next_season_id,
             }
-            team_instance.Golfers = {}  # Reset golfers
-            team_instance.created_at = None  # Reset creation time
-            team_instance.updated_at = None  # Reset updated time
-            
-            # Save the new team instance
+
+            team_instance = Team(**new_team_dict)
             team_instance.save()
 
         self.FantasyLeagueSeasons.append(next_season_id)
@@ -226,33 +230,6 @@ class League(Base):
         self.save()
 
         return next_season_id
-
-    def transition_to_next_pro_season(self):
-        """update settings with next pro season"""
-
-        pro_season_id = self.LeagueSettings.ProSeasonId
-
-        previous_pro_season = db.proSeasons.find_one({
-            "_id": pro_season_id
-        })
-
-        pro_season_league_name = previous_pro_season["LeagueName"]
-        current_time = datetime.utcnow()
-
-        latest_pro_season = db.proSeasons.find_one({
-            "LeagueName": pro_season_league_name,
-            "StartDate": {"$lte": current_time},  # StartDate is less than or equal to the current time
-            "EndDate": {"$gte": current_time}     # EndDate is greater than or equal to the current time
-        })
-
-        if not latest_pro_season:
-            raise ValueError("No active pro season found for the specified league name")
-
-        self.LeagueSettings.ProSeasonId = latest_pro_season["_id"]
-
-        self.save()
-
-        return str(latest_pro_season["_id"])
 
     def remove_lowest_ogwr_golfer(team_id: PyObjectId) -> PyObjectId:
         # Find the team by ID
@@ -377,7 +354,7 @@ class League(Base):
         if not season_id:
             raise ValueError("there is no current season ongoing for this league")
 
-        season_doc = db.fantasyLeagueSeasons.find_one({"_id": season_id})
+        season_doc = db.fantasyLeagueSeasons.find_one({"_id": ObjectId(season_id)})
         tournament_ids = season_doc["Tournaments"]
         tournaments = list(db.tournaments.find({"_id": {"$in": tournament_ids}}).sort("StartDate"))
 
@@ -460,7 +437,9 @@ class League(Base):
                     team1_result.save()
                     team2_result.save()
 
-            self.save()
+        self.CurrentPeriodId = period_ids[0]
+
+        self.save()
 
         # Update the season with the period ids
         db.fantasyLeagueSeasons.update_one(
