@@ -27,7 +27,7 @@ Period = Any  # Temporary alias to avoid circular dependency
 Golfer = Any  # Temporary alias to avoid circular dependency
 
 class League(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     Name: str
     CommissionerId: PyObjectId
     LeagueSettings: Optional[Dict]
@@ -102,66 +102,36 @@ class League(Base):
         draft_start = now + timedelta(days=days_ahead)
         draft_start = draft_start.replace(hour=hour, minute=minute, second=0, microsecond=0)
         return draft_start
-    
-    def create_initial_season(self, tournaments: List["Tournament"]) -> PyObjectId:
 
-        from models import FantasyLeagueSeason
-
-        if not self.FantasyLeagueSeasons or len(self.FantasyLeagueSeasons) < 1:
-            if not tournaments:
-                raise ValueError("No tournaments specified for the initial season.")
-
-            first_tournament_doc = tournaments[0]
-            last_tournament_doc = tournaments[-1]
-
-            tournament_ids = [ObjectId(tournament["_id"]) for tournament in tournaments]
-
-            first_season = FantasyLeagueSeason(
-                SeasonNumber=1,
-                StartDate=first_tournament_doc["StartDate"],
-                EndDate=last_tournament_doc["EndDate"],
-                Periods=[],
-                LeagueId=self.id,
-                Tournaments=tournament_ids,
-                Active=True,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
-            )
-
-            first_season_id = first_season.save()
-
-            self.FantasyLeagueSeasons.append(first_season_id)
-            self.CurrentFantasyLeagueSeasonId = first_season_id
-            self.save()
-
-            return first_season_id
-
-    def transition_to_next_season(self) -> PyObjectId:
+    def prepare_transition_to_next_season(self):
+        from pymongo import UpdateOne, InsertOne
         from models import FantasyLeagueSeason, Team
-        
+
         # Step 1: Find the current season
         current_season = self.find_current_season()
 
+        if not current_season:
+            raise ValueError("Current season not found.")
+
         current_pro_season = db.proSeasons.find_one(
-            {"_id": current_season.ProSeasonId},  # Match the ProSeasonId
-            {"LeagueName": 1}  # Project only the LeagueName field
+            {"_id": current_season.ProSeasonId},
+            {"LeagueName": 1}
         )
 
-        # ensure there's a pro season with tournaments to renew to
+        # Ensure there's a pro season with tournaments to renew to
         upcoming_or_ongoing_pro_season = db.proSeasons.find_one(
-        {"EndDate": {"$gt": datetime.utcnow()}, "LeagueName": current_pro_season["LeagueName"]}
+            {"EndDate": {"$gt": datetime.utcnow()}, "LeagueName": current_pro_season["LeagueName"]}
         )
 
         if not upcoming_or_ongoing_pro_season or not len(upcoming_or_ongoing_pro_season["Competitions"]) > 0:
             raise ValueError("There is not an upcoming season or there are not any upcoming tournaments.")
 
-        if not current_season:
-            raise ValueError("Current season not found.")
-        
         # Step 2: Deactivate the current season
-        current_season.Active = False
-        current_season.save()
-        
+        deactivate_current_season_op = UpdateOne(
+            {"_id": current_season.id},
+            {"$set": {"Active": False}}
+        )
+
         # Step 3: Determine the next fantasy season number
         next_season_number = current_season.SeasonNumber + 1
 
@@ -180,11 +150,16 @@ class League(Base):
         }))
         matching_tournament_ids = [tournament["_id"] for tournament in matching_tournaments]
 
-        # Step 6: Create the next season
+        if not matching_tournaments:
+            raise ValueError("No matching tournaments found for the next season.")
+
+        # Step 6: Prepare the next season creation operation
         first_tournament_doc = matching_tournaments[0]
         last_tournament_doc = matching_tournaments[-1]
 
-        next_season = FantasyLeagueSeason(
+        # Step 6: Create the next season instance and explicitly generate an _id
+        next_season_id = ObjectId()  # Generate an ObjectId for the next season
+        next_season_instance = FantasyLeagueSeason(
             SeasonNumber=next_season_number,
             StartDate=first_tournament_doc["StartDate"],
             EndDate=last_tournament_doc["EndDate"],
@@ -197,39 +172,55 @@ class League(Base):
             ProSeasonId=upcoming_or_ongoing_pro_season["_id"]
         )
 
-        next_season_id = next_season.save()
+        # Convert the instance to a dictionary and set the generated _id
+        next_season_dict = next_season_instance.to_dict_for_mongodb()
+        next_season_dict["_id"] = next_season_id  # Assign the generated ObjectId
 
-        # Copy teams to the new season
+        # Prepare the operation to insert the next season document
+        create_next_season_op = InsertOne(next_season_dict)
+
+        # Step 7: Prepare team copying operations
         teams = list(db.teams.find({"FantasyLeagueSeasonId": ObjectId(self.CurrentFantasyLeagueSeasonId)}))
+        team_operations = []
         for team_data in teams:
-            new_team_dict = {
-                "TeamName": team_data["TeamName"],
-                "ProfilePicture": team_data["ProfilePicture"],
-                "Golfers": {},
-                "OwnerId": team_data["OwnerId"],
-                "LeagueId": team_data["LeagueId"],
-                "Points": 0,
-                "FAAB": 0,
-                "WaiverNumber": 0,
-                "TeamStats": {
+            new_team_instance = Team(
+                TeamName=team_data["TeamName"],
+                ProfilePicture=team_data["ProfilePicture"],
+                Golfers={},
+                OwnerId=team_data["OwnerId"],
+                LeagueId=team_data["LeagueId"],
+                Points=0,
+                FAAB=0,
+                WaiverNumber=0,
+                TeamStats={
                     "Wins": 0,
                     "TotalUnderPar": 0,
                     "AvgScore": 0.00,
                     "MissedCuts": 0,
                     "Top10s": 0
                 },
-                "Placement": team_data["Placement"],
-                "FantasyLeagueSeasonId": next_season_id,
+                Placement=team_data["Placement"],
+                FantasyLeagueSeasonId=next_season_id
+            )
+            new_team_data = new_team_instance.to_dict_for_mongodb()
+            team_operations.append(InsertOne(new_team_data))
+
+        # Step 8: Prepare league updates
+        league_update_op = UpdateOne(
+            {"_id": ObjectId(self.id)},
+            {
+                "$push": {"FantasyLeagueSeasons": next_season_id},
+                "$set": {"CurrentFantasyLeagueSeasonId": next_season_id}
             }
+        )
 
-            team_instance = Team(**new_team_dict)
-            team_instance.save()
-
-        self.FantasyLeagueSeasons.append(next_season_id)
-        self.CurrentFantasyLeagueSeasonId = next_season_id
-        self.save()
-
-        return next_season_id
+        # Return all operations
+        return {
+            "season_deactivation": deactivate_current_season_op,
+            "next_season_creation": create_next_season_op,
+            "team_operations": team_operations,
+            "league_update": league_update_op,
+        }
 
     def remove_lowest_ogwr_golfer(team_id: PyObjectId) -> PyObjectId:
         # Find the team by ID
@@ -347,12 +338,13 @@ class League(Base):
         return True
 
     def create_periods_between_tournaments(self):
+        from pymongo import InsertOne
         from models import Period, TeamResult, Draft
 
         # Fetch all selected tournaments for this season and league
         season_id = self.CurrentFantasyLeagueSeasonId
         if not season_id:
-            raise ValueError("there is no current season ongoing for this league")
+            raise ValueError("There is no current season ongoing for this league")
 
         season_doc = db.fantasyLeagueSeasons.find_one({"_id": ObjectId(season_id)})
         tournament_ids = season_doc["Tournaments"]
@@ -360,92 +352,128 @@ class League(Base):
 
         if not tournaments or len(tournaments) < 2:
             raise ValueError("Insufficient tournaments to create periods.")
-        
+
         league_settings = self.LeagueSettings
 
         # Determine draft frequency
         draft_frequency = league_settings["DraftingFrequency"]
         draft_periods = set(range(1, len(tournaments) + 1, draft_frequency))
 
-        self.create_initial_period(season_id)
+        # Initial period creation
+        initial_period_dict = self.create_initial_period(season_id)
+        
+        draft_start_date = self.convert_to_datetime(
+            league_settings["DraftStartDayOfWeek"],
+            league_settings["DraftStartTime"],
+            league_settings["TimeZone"]
+        )
 
+        # initial draft to go alongside period
+        first_draft_dict = self.create_initial_draft(draft_start_date, initial_period_dict["_id"], league_settings["MaxGolfersPerTeam"])
+
+        # Containers for bulk operations
+        period_operations = []
+        team_result_operations = []
+        draft_operations = []
         period_ids = []
 
-        # Create periods corresponding to tournaments
+        period_operations.append(InsertOne(initial_period_dict))
+        draft_operations.append(InsertOne(first_draft_dict))
+
+        # Create periods, drafts, and team results
         for i in range(len(tournaments)):
             current_tournament = tournaments[i]
-            if i == 0:
-                # For the first period, set StartDate to some initial league or season start date
-                start_date = self.created_at  # Assuming this exists
-            else:
-                # Set StartDate as the EndDate of the previous tournament
-                previous_tournament = tournaments[i - 1]
-                start_date = previous_tournament["EndDate"]
+            start_date = self.created_at if i == 0 else tournaments[i - 1]["EndDate"]
 
             # Create the period
-            period = Period(
+            period_data = Period(
                 LeagueId=self.id,
                 StartDate=start_date,
                 EndDate=current_tournament["EndDate"],
                 PeriodNumber=i + 1,
                 TournamentId=current_tournament["_id"],
-                FantasyLeagueSeasonId=self.CurrentFantasyLeagueSeasonId
-            )
+                FantasyLeagueSeasonId=self.CurrentFantasyLeagueSeasonId,
+                Standings=[],
+                TeamResults=[],
+                FreeAgentSignings={}
+            ).to_dict_for_mongodb()
+            period_id = ObjectId()
+            period_data["_id"] = period_id
 
-            # Handle draft assignment
+            # Assign drafts to certain periods
             if (i + 1) in draft_periods:
-                draft = Draft(
+                draft_data = Draft(
                     LeagueId=self.id,
                     StartDate=current_tournament["EndDate"],
                     Rounds=league_settings["MinFreeAgentDraftRounds"],
-                    PeriodId=period.id,
+                    PeriodId=period_id,
                     Picks=[],
-                    DraftOrder=[]
-                )
-                draft.save()
-                period.DraftId = draft.id
+                    DraftOrder=[],
+                    IsComplete=False
+                ).to_dict_for_mongodb()
+                draft_id = ObjectId()
+                draft_data["_id"] = draft_id
+                draft_operations.append(InsertOne(draft_data))
+                period_data["DraftId"] = draft_id
 
-            period_id = period.save()
-            period_ids.append(period_id)
-
-            # Create Team Results and generate matchups for head-to-head leagues
-            if league_settings["HeadToHead"]:
-                matchups = self.generate_matchups(period)
+            # Create team results for head-to-head leagues
+            if league_settings["Game"] == "HeadToHead":
+                matchups = self.generate_matchups(period_data)
                 for team1_id, team2_id in matchups:
-                    team1_result = TeamResult(
+                    team_1_result = TeamResult(
                         TeamId=team1_id,
                         LeagueId=self.id,
                         TournamentId=current_tournament["_id"],
-                        PeriodId=period.id,
+                        PeriodId=period_id,
                         TotalPoints=0,
                         GolfersScores={},
                         Placing=0,
                         PointsFromPlacing=0,
                         OpponentId=team2_id
-                    )
-                    team2_result = TeamResult(
+                    ).to_dict_for_mongodb()
+                    team_1_result["_id"] = ObjectId()
+                    team_result_operations.append(InsertOne(team_1_result))
+
+                    team_2_result = TeamResult(
                         TeamId=team2_id,
                         LeagueId=self.id,
                         TournamentId=current_tournament["_id"],
-                        PeriodId=period.id,
+                        PeriodId=period_id,
                         TotalPoints=0,
                         GolfersScores={},
                         Placing=0,
                         PointsFromPlacing=0,
                         OpponentId=team1_id
-                    )
-                    team1_result.save()
-                    team2_result.save()
+                    ).to_dict_for_mongodb()
+                    team_2_result["_id"] = ObjectId()
+                    team_result_operations.append(InsertOne(team_2_result))
 
-        self.CurrentPeriodId = period_ids[0]
+                    period_data.setdefault("TeamResults", []).extend([team_1_result["_id"], team_2_result["_id"]])
 
-        self.save()
+            period_operations.append(InsertOne(period_data))
+            period_ids.append(period_id)
 
-        # Update the season with the period ids
-        db.fantasyLeagueSeasons.update_one(
-            {"_id": self.CurrentFantasyLeagueSeasonId},
-            {"$set": {"Periods": period_ids}}
-        )
+        # Update operations for the season and league
+        season_update = {
+            "operation": "update_one",
+            "filter": {"_id": ObjectId(self.CurrentFantasyLeagueSeasonId)},
+            "update": {"$set": {"Periods": period_ids}}
+        }
+
+        league_update = {
+            "operation": "update_one",
+            "filter": {"_id": ObjectId(self.id)},
+            "update": {"$set": {"CurrentPeriodId": period_ids[0]}}
+        }
+
+        return {
+            "period_operations": period_operations,
+            "draft_operations": draft_operations,
+            "team_result_operations": team_result_operations,
+            "season_update": season_update,
+            "league_update": league_update
+        }
+
 
     def get_most_recent_season(self) -> FantasyLeagueSeason:
         from models import FantasyLeagueSeason
@@ -513,18 +541,14 @@ class League(Base):
         season = db.fantasyLeagueSeasons.find_one({
             "_id": season_id
         })
-        first_tournament = season["Tournaments"][0]
+        first_tournament_id = season["Tournaments"][0]
 
-        league_settings = self.LeagueSettings
+        first_tournament = db.tournaments.find_one({
+            "_id": first_tournament_id
+        })
 
         if not first_tournament:
             raise ValueError("No tournaments found to initialize the period.")
-
-        draft_start_date = self.convert_to_datetime(
-            league_settings["DraftStartDayOfWeek"],
-            league_settings["DraftStartTime"],
-            league_settings["TimeZone"]
-        )
 
         # Create an initial period before the first tournament
         initial_period = Period(
@@ -536,13 +560,10 @@ class League(Base):
             FantasyLeagueSeasonId=self.CurrentFantasyLeagueSeasonId
         )
 
-        initial_period_id = initial_period.save()
+        initial_period_dict = initial_period.to_dict_for_mongodb()
+        initial_period_dict["_id"] = ObjectId()
 
-        first_draft_id = self.create_initial_draft(draft_start_date, initial_period_id, league_settings["MaxGolfersPerTeam"])
-
-        initial_period.DraftId = first_draft_id
-
-        initial_period.save()
+        return initial_period_dict
 
     def create_initial_draft(self, draft_start_date, initial_period_id, max_golfers_per_team) -> PyObjectId:
         from models import Draft
@@ -554,12 +575,11 @@ class League(Base):
             Rounds=max_golfers_per_team,
             PeriodId=initial_period_id,
             Picks=[],
-            DraftOrder=[]
+            DraftOrder=[],
+            IsComplete=False
         )
 
-        first_draft_id = first_draft.save()
-
-        return first_draft_id
+        return first_draft.to_dict_for_mongodb()
 
     def determine_next_draft_order(self, next_period: Period):
         from models import Draft

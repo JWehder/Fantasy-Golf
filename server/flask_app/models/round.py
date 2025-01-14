@@ -14,7 +14,7 @@ from models import PyObjectId
 from config import db
 
 class HoleData(Base):
-    _id: PyObjectId
+    _id: Optional[PyObjectId]
     Strokes: int
     Par: bool
     NetScore: int
@@ -31,7 +31,7 @@ class HoleData(Base):
     updated_at: Optional[datetime] = None
 
 class Round(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     GolferTournamentDetailsId: PyObjectId
     Round: str
     Birdies: int

@@ -15,7 +15,7 @@ from models import PyObjectId
 from config import db
 
 class FantasyLeagueSeason(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     SeasonNumber: int
     StartDate: datetime
     EndDate: datetime
@@ -125,3 +125,35 @@ class FantasyLeagueSeason(Base):
             raise ValueError('End date must be after start date')
 
         return values
+
+    def create_initial_season(self, tournament_ids: List[ObjectId], league_id: ObjectId) -> Dict:
+
+        from models import FantasyLeagueSeason
+
+        if not self.FantasyLeagueSeasons or len(self.FantasyLeagueSeasons) < 1:
+            if not tournament_ids:
+                raise ValueError("No tournaments specified for the initial season.")
+
+            first_tournament_doc = db.tournaments.find_one({
+                "_id": ObjectId(tournament_ids[0])
+            })
+            last_tournament_doc = db.tournaments.find_one({
+                "_id": ObjectId(tournament_ids[-1])
+            })
+
+            first_season = FantasyLeagueSeason(
+                SeasonNumber=1,
+                StartDate=first_tournament_doc["StartDate"],
+                EndDate=last_tournament_doc["EndDate"],
+                Periods=[],
+                LeagueId=league_id,
+                Tournaments=tournament_ids,
+                Active=True,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            
+            first_season_dict = first_season.to_dict_for_mongodb()
+            first_season_dict["_id"] = ObjectId()
+
+            return first_season_dict

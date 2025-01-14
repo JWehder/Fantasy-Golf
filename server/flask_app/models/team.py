@@ -22,7 +22,7 @@ class Golfer(Base):
     IsBench: bool
 
 class Team(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     TeamName: str
     ProfilePicture: Optional[str] = Field(description="Profile picture for team")
     Golfers: Dict[str, Golfer] = Field(default_factory=dict, description="Dictionary of golfer IDs with usage count and team status")

@@ -15,7 +15,7 @@ from models.base_model import Base
 from config import db
 
 class DraftPick(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     TeamId: PyObjectId
     GolferId: PyObjectId
     RoundNumber: int

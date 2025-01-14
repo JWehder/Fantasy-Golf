@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime
 from bson import ObjectId
@@ -15,10 +15,9 @@ from models import PyObjectId
 from config import db
 
 class Draft(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     LeagueId: PyObjectId
-    StartDate: datetime
-    EndDate: Optional[datetime] = None
+    StartDate: Any
     Rounds: int
     PeriodId: PyObjectId
     DraftOrder: Optional[List[PyObjectId]]
@@ -87,26 +86,17 @@ class Draft(Base):
             upsert=True
         )
 
-
     @field_validator('Rounds')
     def rounds_must_be_positive(cls, v):
         if v < 1:
             raise ValueError('Number of rounds must be positive')
         return v
 
-    @field_validator('StartDate', 'EndDate')
-    def dates_must_be_valid(cls, v, field):
-        if not isinstance(v, datetime):
-            raise ValueError(f'{field.name} must be a valid datetime')
-        return v
-
-    @model_validator(mode='before')
-    def end_date_must_be_after_start_date(cls, values):
-        start_date = values.get('StartDate')
-        end_date = values.get('EndDate')
-        if end_date and start_date and end_date <= start_date:
-            raise ValueError('End date must be after start date')
-        return values
+    # @field_validator('StartDate')
+    # def dates_must_be_valid(cls, v):
+    #     if not isinstance(v, datetime):
+    #         raise ValueError(f'StartDate must be a valid datetime')
+    #     return v
 
     class Config:
         populate_by_name = True

@@ -61,3 +61,21 @@ def to_serializable(data):
     # Return data if no conversion is needed
     else:
         return data
+
+def serializable_for_db(data):
+    from models import Base
+
+    # Check if data is a dictionary and traverse
+    if isinstance(data, dict):
+        return {key: to_serializable(value) for key, value in data.items()}
+    elif isinstance(data, Base): 
+        return to_serializable(data.__dict__)
+    # Check if data is a list and traverse
+    elif isinstance(data, list):
+        return [to_serializable(item) for item in data]
+    # Convert datetime to ISO format
+    elif isinstance(data, datetime):
+        return data.strftime("%m/%d/%Y")
+    # Return data if no conversion is needed
+    else:
+        return data

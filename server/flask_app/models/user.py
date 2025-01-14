@@ -17,7 +17,7 @@ from config import db
 from helper_methods import send_email
 
 class User(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     Username: str
     Email: EmailStr
     Password: str

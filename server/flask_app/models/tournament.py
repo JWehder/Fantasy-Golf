@@ -14,7 +14,7 @@ from models import PyObjectId
 from config import db
 
 class Tournament(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     EndDate: datetime
     StartDate: datetime
     Name: str

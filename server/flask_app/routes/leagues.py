@@ -1,4 +1,4 @@
-from flask import jsonify, abort, Blueprint, session
+from flask import jsonify, Blueprint, session
 import sys
 import os
 from bson.objectid import ObjectId
@@ -107,6 +107,7 @@ def get_teams_by_league_id(league_id):
 @leagues_bp.route('/<league_id>/fantasy_league_seasons/create_new_season', methods=['POST'])
 def create_new_season(league_id):
     from bson import ObjectId
+    from pymongo.errors import PyMongoError
 
     user_id = session.get('user_id')
 
@@ -124,24 +125,59 @@ def create_new_season(league_id):
     
     league_instance = League(**league)
 
-    new_fantasy_league_season_id = league_instance.transition_to_next_season()
+    try:
+        # Start a session for the transaction
+        with db.client.start_session() as db_session:
+            with db_session.start_transaction():
+                # Prepare the transition operations
+                transition_ops = league_instance.prepare_transition_to_next_season()
 
-    if old_fantasy_league_season_id == new_fantasy_league_season_id:
-        return jsonify({
-            "error": "The old fantasy league season ID is the same as the new one. Unable to transition to the next season."
-        }), 400
+                # Execute operations for transitioning to the next season
+                db.fantasyLeagueSeasons.bulk_write(
+                    [transition_ops["season_deactivation"], transition_ops["next_season_creation"]],
+                    session=db_session
+                )
+
+                if transition_ops["team_operations"]:
+                    db.teams.bulk_write(transition_ops["team_operations"], session=db_session)
+
+                db.leagues.bulk_write([transition_ops["league_update"]], session=db_session)
+
+                # Prepare operations for periods between tournaments
+                operations = league_instance.create_periods_between_tournaments()
+
+                # Execute operations for periods, drafts, and team results
+                if operations["period_operations"]:
+                    db.periods.bulk_write(operations["period_operations"], session=db_session)
+                if operations["draft_operations"]:
+                    db.drafts.bulk_write(operations["draft_operations"], session=db_session)
+                if operations["team_result_operations"]:
+                    db.teamResults.bulk_write(operations["team_result_operations"], session=db_session)
+
+                # Update the fantasyLeagueSeasons and leagues collections
+                db.fantasyLeagueSeasons.update_one(
+                    operations["season_update"]["filter"],
+                    operations["season_update"]["update"],
+                    session=db_session
+                )
+                db.leagues.update_one(
+                    operations["league_update"]["filter"],
+                    operations["league_update"]["update"],
+                    session=db_session
+                )
+
+    except PyMongoError as e:
+        raise RuntimeError(f"Failed to execute operations: {e}")
     
     # Test that the current fantasy league season was created and the new fantasy league season id is correct
     current_fantasy_league_season = db.fantasyLeagueSeasons.find_one({
         "_id": ObjectId(league_instance.CurrentFantasyLeagueSeasonId)
     })
 
-    league_instance.create_periods_between_tournaments()
-
     if not current_fantasy_league_season:
         return {"error": "Current fantasy league season not found"}, 404
     
-    return {"message": "New fantasy league season created successfully", "newSeasonId": str(new_fantasy_league_season_id), }, 201
+    return {"message": "New fantasy league season created successfully", "newSeasonId": str(current_fantasy_league_season["_id"]), }, 201
     
 @leagues_bp.route('/<league_id>/users', methods=['GET'])
 def get_leagues_users(league_id):

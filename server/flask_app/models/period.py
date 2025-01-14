@@ -18,9 +18,9 @@ from config import db
 TeamResult = Any
 
 class Period(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
-    StartDate: datetime
-    EndDate: datetime
+    id: Optional[PyObjectId] = Field(alias='_id')
+    StartDate: Any
+    EndDate: Any
     PeriodNumber: int = Field(description="whatever number field this is in the list of periods total")
     WaiverPool: Optional[List[Dict]] = []
     FantasyLeagueSeasonId: PyObjectId

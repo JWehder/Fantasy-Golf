@@ -14,7 +14,7 @@ from models import PyObjectId
 from config import db
 
 class ProSeason(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     LeagueName: str
     StartDate: datetime
     EndDate: datetime

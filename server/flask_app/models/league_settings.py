@@ -15,7 +15,7 @@ from models import PyObjectId
 from config import db
 
 class LeagueSettings(Base):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias='_id')
+    id: Optional[PyObjectId] = Field(alias='_id')
     created_at: Optional[datetime] = None
     Sport: str = Field(default="Golf", description="Type of fantasy sports league.")
     ProSeasonId: str = Field(default="PGA Tour", description="Professional league season the league is participating in.")
