@@ -46,6 +46,8 @@ export default function Leaderboard() {
                     {isFetching && !isSuccess && !data?.tournaments?.length && <SkeletonTable />}
                     { isSuccess && 
                     <TournamentScheduleTable 
+                    checkboxes={false}
+                    disabledCheckboxes
                     tournaments={data?.tournaments!}
                     />
                     }

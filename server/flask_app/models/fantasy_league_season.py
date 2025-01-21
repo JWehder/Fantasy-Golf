@@ -14,6 +14,8 @@ from models.base_model import Base
 from models import PyObjectId
 from config import db
 
+from helper_methods import convert_to_datetime
+
 class FantasyLeagueSeason(Base):
     id: Optional[PyObjectId] = Field(alias='_id')
     SeasonNumber: int
@@ -126,7 +128,7 @@ class FantasyLeagueSeason(Base):
 
         return values
 
-    def create_initial_season(self, tournament_ids: List[ObjectId], league_id: ObjectId) -> Dict:
+    def create_season_dict(self, tournament_ids: List[ObjectId], league_id: ObjectId) -> Dict:
 
         from models import FantasyLeagueSeason
 
@@ -153,7 +155,74 @@ class FantasyLeagueSeason(Base):
                 updated_at=datetime.utcnow()
             )
             
-            first_season_dict = first_season.to_dict_for_mongodb()
+            first_season_dict = first_season.dict(by_alias=True, exclude_unset=True)
             first_season_dict["_id"] = ObjectId()
 
             return first_season_dict
+
+    def add_tournament_and_period_to_calendar(self, tournament_id: PyObjectId):
+        from models import Period, Draft
+
+        tournament = db.tournaments.find_one({
+            "_id": tournament_id
+        })
+
+        if tournament:
+            # Query to find the overlapping period
+            overlapping_period = db.periods.find_one({
+                "FantasyLeagueSeasonId": self.id,
+                "$and": [
+                    {"StartDate": {"$lte": tournament["StartDate"]}},  # Period starts before or on the tournament's start date
+                    {"EndDate": {"$gte": tournament["EndDate"]}}       # Period ends after or on the tournament's end date
+                ]
+            })
+
+            if overlapping_period:
+                overlapping_period = Period(**overlapping_period)
+
+                league = db.leagues.find_one({
+                    "_id": overlapping_period["LeagueId"]
+                })
+
+                league_settings = league["LeagueSettings"]
+
+                draft_start_date = convert_to_datetime(
+                    league_settings["DraftStartDayOfWeek"],
+                    league_settings["DraftStartTime"],
+                    league_settings["TimeZone"]
+                )
+
+                draft_id = ObjectId()
+
+                new_period = Period(
+                    id=ObjectId(),
+                    StartDate=overlapping_period["StartDate"],
+                    EndDate=overlapping_period["EndDate"],
+                    PeriodNumber=overlapping_period["PeriodNumber"] + 1,
+                    WaiverPool=[],
+                    FantasyLeagueSeasonId= overlapping_period["FantasyLeagueSeasonId"],
+                    Standings=[],
+                    FreeAgentSignings={},
+                    Drops={},
+                    TournamentId=tournament_id,
+                    TeamResults=[],
+                    LeagueId=overlapping_period["LeagueId"],
+                    DraftId=draft_id,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+
+                draft = Draft(
+                    id=draft_id,
+                    LeagueId=self.id,
+                    StartDate=draft_start_date,
+                    Rounds=league_settings["MaxGolfersPerTeam"],
+                    PeriodId=new_period.id,
+                    Picks=[],
+                    DraftOrder=[],
+                    IsComplete=False,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+
+

@@ -287,54 +287,60 @@ def print_children(element):
         print(div.get_attribute("class"), div.text)
 
 def parse_tournament_header(webpage_data):
-  # grab the tournament info from the header
-  header = webpage_data.find_element(By.CSS_SELECTOR, "div.Leaderboard__Header")
+    # grab the tournament info from the header
+    header = webpage_data.find_element(By.CSS_SELECTOR, "div.Leaderboard__Header")
 
-  par, yardage = None, None
+    par, yardage = None, None
 
-  if check_data_exists(header, "div.Leaderboard__Course__Location__Detail"):
-    # grab the par and yardage
-    par_yardage = webpage_data.find_element(By.CSS_SELECTOR, "div.Leaderboard__Course__Location__Detail")
-    par, yardage = re.findall(r'(\d+)', str(par_yardage.text))
+    if check_data_exists(header, "div.Leaderboard__Course__Location__Detail"):
+        # grab the par and yardage
+        par_yardage = webpage_data.find_element(By.CSS_SELECTOR, "div.Leaderboard__Course__Location__Detail")
+        par, yardage = re.findall(r'(\d+)', str(par_yardage.text))
 
-  # what's the status of the tournament? In progress, finished?
-  status = webpage_data.find_element(By.CSS_SELECTOR, "div.status")
+    # what's the status of the tournament? In progress, finished?
+    status = webpage_data.find_element(By.CSS_SELECTOR, "div.status")
 
-  # grab the specific element with the text that discloses the tournament status
-  status_text = status.find_element(By.CSS_SELECTOR, "span").text
+    # grab the specific element with the text that discloses the tournament status
+    status_text = status.find_element(By.CSS_SELECTOR, "span").text
 
-  # grab the tournament info from the header
-  purse_previous_winner_text = webpage_data.find_element(By.CSS_SELECTOR, "div.n7").text
-  print(purse_previous_winner_text)
+    if status_text == "Tournament Field":
+        status = "Upcoming"
+    elif status_text == "Final":
+        status = "Complete"
 
-  # Split the string based on the expected patterns
-  split_values = re.findall(r'[A-Z][^A-Z]*', purse_previous_winner_text)
+    # grab the tournament info from the header
+    purse_previous_winner_text = webpage_data.find_element(By.CSS_SELECTOR, "div.n7").text
+    print(purse_previous_winner_text)
 
-  purse = None
-  previous_winner = None
+    # Split the string based on the expected patterns
+    split_values = re.findall(r'[A-Z][^A-Z]*', purse_previous_winner_text)
 
-  # Handle the different possible cases
-  if len(split_values) >= 1:
+    purse = None
+    previous_winner = None
 
-      # Case 1: Only the purse value
-      if "Purse" in split_values[0]:
-          purse = re.findall(r'(\d+)', split_values[0])
-          purse = int(''.join(purse)) if purse else None
+    # Handle the different possible cases
+    if len(split_values) >= 1:
 
-      # Case 2: Both purse and previous winner
-      if len(split_values) > 1:
-          previous_winner = ''.join(split_values[-2:]).strip()
-        
-      # Case 3: Only previous winner
-      if "Purse" not in split_values[0] and len(split_values) > 1:
-          previous_winner = ' '.join(split_values[-2:]).strip()
+        # Case 1: Only the purse value
+        if "Purse" in split_values[0]:
+            purse = re.findall(r'(\d+)', split_values[0])
+            purse = int(''.join(purse)) if purse else None
 
-  return {
-      "Purse": purse,
-      "PreviousWinner": previous_winner,
-      "Par": par,
-      "Yardage": yardage
-      }
+        # Case 2: Both purse and previous winner
+        if len(split_values) > 1:
+            previous_winner = ''.join(split_values[-2:]).strip()
+            
+        # Case 3: Only previous winner
+        if "Purse" not in split_values[0] and len(split_values) > 1:
+            previous_winner = ' '.join(split_values[-2:]).strip()
+
+    return {
+        "Purse": purse,
+        "PreviousWinner": previous_winner,
+        "Par": par,
+        "Yardage": yardage,
+        "status": status
+        }
 
 def parse_winner_score(score_str):
     # Use regular expressions to remove parentheses

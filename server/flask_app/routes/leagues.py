@@ -114,8 +114,6 @@ def create_new_season(league_id):
     # Fetch the league
     league = db.leagues.find_one({"_id": ObjectId(league_id)})
 
-    old_fantasy_league_season_id = league["CurrentFantasyLeagueSeasonId"]
-
     if not league:
         return {"error": "League not found"}, 404
 
@@ -131,20 +129,19 @@ def create_new_season(league_id):
             with db_session.start_transaction():
                 # Prepare the transition operations
                 transition_ops = league_instance.prepare_transition_to_next_season()
+                next_season_dict = transition_ops["next_season_dict"]
 
-                # Execute operations for transitioning to the next season
-                db.fantasyLeagueSeasons.bulk_write(
-                    [transition_ops["season_deactivation"], transition_ops["next_season_creation"]],
-                    session=db_session
-                )
+                # make adjustments to league instance once transition initial transition steps have been made.
+                league_instance.CurrentFantasyLeagueSeasonId = next_season_dict["_id"]
+                league_instance.FantasyLeagueSeasons.append(next_season_dict["_id"])
 
                 if transition_ops["team_operations"]:
                     db.teams.bulk_write(transition_ops["team_operations"], session=db_session)
 
-                db.leagues.bulk_write([transition_ops["league_update"]], session=db_session)
-
                 # Prepare operations for periods between tournaments
-                operations = league_instance.create_periods_between_tournaments()
+                operations = league_instance.create_periods_between_tournaments(next_season_dict)
+
+                next_season_dict["Periods"] = operations["period_ids"]
 
                 # Execute operations for periods, drafts, and team results
                 if operations["period_operations"]:
@@ -154,12 +151,7 @@ def create_new_season(league_id):
                 if operations["team_result_operations"]:
                     db.teamResults.bulk_write(operations["team_result_operations"], session=db_session)
 
-                # Update the fantasyLeagueSeasons and leagues collections
-                db.fantasyLeagueSeasons.update_one(
-                    operations["season_update"]["filter"],
-                    operations["season_update"]["update"],
-                    session=db_session
-                )
+                db.fantasyLeagueSeasons.insert_one(next_season_dict, session=db_session)
                 db.leagues.update_one(
                     operations["league_update"]["filter"],
                     operations["league_update"]["update"],
@@ -176,6 +168,8 @@ def create_new_season(league_id):
 
     if not current_fantasy_league_season:
         return {"error": "Current fantasy league season not found"}, 404
+
+    league_instance.save()
     
     return {"message": "New fantasy league season created successfully", "newSeasonId": str(current_fantasy_league_season["_id"]), }, 201
     

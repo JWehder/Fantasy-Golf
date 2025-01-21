@@ -7,7 +7,7 @@ import { LeagueSettings } from "../../../types/leagueSettings";
 interface proSeasonChangeResponse {
     newProSeasonId: string,
     newSeasonId: string
-}
+};
 
 export const getLeague = createAsyncThunk<League, string>(
     "leagues/fetchLeagueById",
@@ -29,7 +29,14 @@ export const getLeague = createAsyncThunk<League, string>(
             return leagueWithoutTeams;
 
         } catch (error) {
-            return thunkAPI.rejectWithValue(error);
+            // Extract error details from the backend response
+            if (axios.isAxiosError(error) && error.response) {
+              const backendError = error.response.data.error || "An error occurred";
+              return thunkAPI.rejectWithValue(backendError);
+            }
+            return thunkAPI.rejectWithValue(
+              error instanceof Error ? error.message : "An unknown error occurred"
+            );
         }
     }
 );
@@ -41,23 +48,28 @@ export const updateLeagueSettings = createAsyncThunk<
     rejectValue: string; // Type of the value returned by `rejectWithValue`
   }
 >(
-  "leagues/updateLeagueSettings",
-  async ({ leagueSettings }, thunkAPI) => {
-    if (!leagueSettings.id) {
-      return thunkAPI.rejectWithValue("League settings ID is undefined");
+    "leagues/updateLeagueSettings",
+    async ({ leagueSettings }, thunkAPI) => {
+        if (!leagueSettings._id) {
+            return thunkAPI.rejectWithValue("League settings ID is undefined");
+        }
+        try {
+            const response: AxiosResponse<LeagueSettings> = await axios.patch(
+                `/api/league_settings/${leagueSettings._id}`,
+                leagueSettings
+            );
+            return response.data; // Return the updated LeagueSettings
+        } catch (error) {
+            // Extract error details from the backend response
+            if (axios.isAxiosError(error) && error.response) {
+              const backendError = error.response.data.error || "An error occurred";
+              return thunkAPI.rejectWithValue(backendError);
+            }
+            return thunkAPI.rejectWithValue(
+              error instanceof Error ? error.message : "An unknown error occurred"
+            );
+        }
     }
-    try {
-      const response: AxiosResponse<LeagueSettings> = await axios.patch(
-        `/api/league_settings/${leagueSettings.id}`,
-        leagueSettings
-      );
-      return response.data; // Return the updated LeagueSettings
-    } catch (error) {
-      return thunkAPI.rejectWithValue(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
-    }
-  }
 );
 
 export const createLeague = createAsyncThunk<
@@ -79,10 +91,15 @@ export const createLeague = createAsyncThunk<
       );
       return response.data; // Return the updated LeagueSettings
     } catch (error) {
-      return thunkAPI.rejectWithValue(
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
-    }
+        // Extract error details from the backend response
+        if (axios.isAxiosError(error) && error.response) {
+          const backendError = error.response.data.error || "An error occurred";
+          return thunkAPI.rejectWithValue(backendError);
+        }
+        return thunkAPI.rejectWithValue(
+          error instanceof Error ? error.message : "An unknown error occurred"
+        );
+    };
   }
 );
 
@@ -125,6 +142,7 @@ interface LeagueState {
     activeComponent: string;
     goToNextSeasonError: string | null;
     goToNextSeasonSuccessBanner: boolean;
+    leagueSettingsStatus: string
 }
 
 const initialState: LeagueState = {
@@ -135,7 +153,8 @@ const initialState: LeagueState = {
     leagueSettingsError: null,
     activeComponent: "Schedule",
     goToNextSeasonError: null,
-    goToNextSeasonSuccessBanner: false
+    goToNextSeasonSuccessBanner: false,
+    leagueSettingsStatus: "idle"
 };
 
 const leagueSlice = createSlice({
@@ -153,6 +172,9 @@ const leagueSlice = createSlice({
         }, 
         setSelectedLeague(state, action) {
             state.selectedLeague = action.payload;
+        },
+        updateLeagueSettingsStatus(state, action) {
+            state.leagueSettingsStatus = action.payload;
         }
     },
     extraReducers: builder => {
@@ -164,7 +186,6 @@ const leagueSlice = createSlice({
         .addCase(getLeague.fulfilled, (state, action) => {
             state.status = "succeeded";
             state.selectedLeague = action.payload; // assuming 'data' is the key for your league data
-            console.log(state.selectedLeague)
             state.leagueError = null;
         })
         .addCase(getLeague.rejected, (state, action) => {
@@ -172,11 +193,11 @@ const leagueSlice = createSlice({
             state.leagueError = action.error.message || "Failed to fetch league data";
         })
         .addCase(updateLeagueSettings.pending, (state) => {
-            state.status = "loading";
+            state.leagueSettingsStatus = "loading";
             state.leagueSettingsError = null;
         })
         .addCase(updateLeagueSettings.fulfilled, (state, action) => {
-            state.status = "succeeded";
+            state.leagueSettingsStatus = "succeeded";
 
             if (!state.selectedLeague || !state.selectedLeague.id) {
                 throw new Error("selectedLeague.id is unexpectedly undefined");
@@ -190,7 +211,7 @@ const leagueSlice = createSlice({
           })
         .addCase(updateLeagueSettings.rejected, (state, action) => {
             state.status = "failed";
-            state.leagueError = action.error.message || "Failed to fetch league data";
+            state.leagueSettingsError = action.payload || "Failed to fetch league data";
         })
         .addCase(goToNextSeason.pending, (state) => {
             state.status = "loading";
@@ -225,6 +246,8 @@ const leagueSlice = createSlice({
 export const { 
     setLeagues, 
     setActiveComponent, 
-    setSelectedLeague } = leagueSlice.actions;
+    setSelectedLeague,
+    updateLeagueSettingsStatus    
+    } = leagueSlice.actions;
 
 export default leagueSlice.reducer;

@@ -1,5 +1,5 @@
 export interface LeagueSettings {
-    id?: string;  // PyObjectId to string
+    _id?: string;  // PyObjectId to string
     created_at?: string;  // datetime to string
     CutPenalty: number;  // integer type
     DraftingFrequency: number;

@@ -18,7 +18,6 @@ class LeagueSettings(Base):
     id: Optional[PyObjectId] = Field(alias='_id')
     created_at: Optional[datetime] = None
     Sport: str = Field(default="Golf", description="Type of fantasy sports league.")
-    ProSeasonId: str = Field(default="PGA Tour", description="Professional league season the league is participating in.")
     CutPenalty: int = Field(default=0, description="Default points for players finishing outside the defined placements")
     DraftingFrequency: int = Field(default=0, description="The number of times the league drafts in between tournaments.")
     DraftStartDayOfWeek: Optional[str] = Field(default="Monday", description="Day of the week in which the draft starts before a tournament or season.")
@@ -30,7 +29,7 @@ class LeagueSettings(Base):
     MaxGolfersPerTeam: int = Field(default=3, ge=1, description="Maximum number of golfers per team")
     MaxNumOfGolferUses: Optional[int] = Field(default=None, description="Number of times a golfer can be used")
     MinFreeAgentDraftRounds: int = Field(default=3, ge=1, description="Minimum number of draft rounds that need to be created each period")
-    NumOfBenchGolfers: int = Field(default=1, ge=1, description="Number of bench players per team")
+    NumOfBenchGolfers: int = Field(default=1, ge=0, description="Number of bench players per team")
     NumOfStarters: int = Field(default=2, ge=1, description="Number of starters per team")
     NumberOfTeams: Optional[int] = Field(default=8, description="Number of the teams within the league.")
     PointsPerPlacing: Optional[List[int]] = Field(default=[], description="Points awarded for placements")
@@ -52,7 +51,7 @@ class LeagueSettings(Base):
     WaiverDeadline: Optional[str] = Field(default="Wednesday", description="Day of the week where players on waivers are distributed.")
     WaiverType: str = Field(default="Reverse Standings", description="Determine the priority with which teams receive in picking up free agents")
     Sport: Literal["Golf"] = "Golf"
-    ProSeasonId = PyObjectId
+    ProSeasonId: PyObjectId
 
     def determine_points_per_placing(self):
         if not self.PointsPerPlacing:
@@ -159,7 +158,7 @@ class LeagueSettings(Base):
         num_of_starters = values.get('NumOfStarters')
         max_golfers_per_team = values.get('MaxGolfersPerTeam')
 
-        if max_golfers_per_team is not None and num_of_starters >= max_golfers_per_team:
+        if max_golfers_per_team is not None and num_of_starters > max_golfers_per_team:
             raise ValueError('Number of defined players must be less than the maximum number of golfers per team.')
 
         return values

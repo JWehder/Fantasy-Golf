@@ -1,7 +1,7 @@
 from flask_mailman import EmailMessage
 from bson import ObjectId
 import pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Add this line to ensure the correct path
 import sys
@@ -62,20 +62,19 @@ def to_serializable(data):
     else:
         return data
 
-def serializable_for_db(data):
-    from models import Base
+def convert_to_datetime(self, day_of_week: str, time_str: str, timezone_str: str) -> datetime:
+        day_number = get_day_number(day_of_week)
+        time_parts = time_str.split(":")
+        hour = int(time_parts[0])
+        minute = int(time_parts[1])
+        
+        now = datetime.now(pytz.timezone(timezone_str))
+        current_day_number = now.weekday()
+        
+        days_ahead = day_number - current_day_number
+        if days_ahead <= 0:
+            days_ahead += 7
 
-    # Check if data is a dictionary and traverse
-    if isinstance(data, dict):
-        return {key: to_serializable(value) for key, value in data.items()}
-    elif isinstance(data, Base): 
-        return to_serializable(data.__dict__)
-    # Check if data is a list and traverse
-    elif isinstance(data, list):
-        return [to_serializable(item) for item in data]
-    # Convert datetime to ISO format
-    elif isinstance(data, datetime):
-        return data.strftime("%m/%d/%Y")
-    # Return data if no conversion is needed
-    else:
-        return data
+        draft_start = now + timedelta(days=days_ahead)
+        draft_start = draft_start.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        return draft_start

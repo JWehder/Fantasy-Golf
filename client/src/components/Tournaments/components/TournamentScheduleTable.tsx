@@ -1,31 +1,44 @@
-import React from "react";
+import React, { useMemo } from "react";
 import TableRow from "../../Utils/components/TableRow";
 import { Tournament } from "../../../types/tournaments";
 import TableHeaders from "../../Utils/components/TableHeaders";
-import { useSettings } from "../../Leagues/state/settingsContext";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch } from "../../../store";
 import { setSelectedTournament } from "../state/tournamentsSlice";
+import { RootState } from "../../../store";
 
 interface TournamentScheduleTableProps {
-    tournaments: Tournament[];
+    tournaments: Tournament[] | undefined;
+    checkboxes: boolean;
+    disabledCheckboxes?: boolean;
+    handleCheckboxChange?: (tournamentId: string) => void;
 }
 
 export default function TournamentScheduleTable({
-    tournaments
+    tournaments,
+    checkboxes,
+    disabledCheckboxes,
+    handleCheckboxChange
 }: TournamentScheduleTableProps) {
     const dispatch = useDispatch<AppDispatch>();
-
-    const { settings, disabled, handleCheckboxChange, selectedTournaments } = useSettings();
 
     const desiredKeysSet = new Set(["PreviousWinner", "Purse"]);
 
     const headers = ["Date", "Tournament Name", "Purse", "Winner"];
 
+    const selectedTournaments = useSelector(
+        (state: RootState) => state.tournaments.selectedTournaments
+      );
+    
+      // Memoize the Set conversion to optimize performance
+    const selectedTournamentsSet = useMemo(() => new Set(selectedTournaments), [
+        selectedTournaments,
+    ]);
+
     return (
         <>
             <div className="flex">
-                { settings ?
+                { checkboxes ?
                 <div className="w-10" />
                 :
                 null
@@ -44,14 +57,18 @@ export default function TournamentScheduleTable({
                 return  (
                     <div className="flex items-center" key={tournament.id}>
                     {/* Checkbox Column */}
-                        { settings ?
+                        { checkboxes ?
                         <div className="w-10 flex justify-center items-center">
                             <input
                                 type="checkbox"
-                                checked={selectedTournaments?.has(tournament.id)}
-                                onChange={() => handleCheckboxChange(tournament.id)}
+                                checked={selectedTournamentsSet?.has(tournament.id)}
+                                onChange={() => {
+                                    if (handleCheckboxChange) {
+                                        handleCheckboxChange(tournament.id)
+                                    }
+                                }}
                                 className="cursor-pointer"
-                                disabled={disabled}
+                                disabled={disabledCheckboxes}
                             />
                         </div>
                         :

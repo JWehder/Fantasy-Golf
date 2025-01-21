@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, ReactNode } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../store";
-import { getLeague, updateLeagueSettings } from "../state/leagueSlice";
+import { getLeague, updateLeagueSettings, updateLeagueSettingsStatus } from "../state/leagueSlice";
 import { useParams, useNavigate } from "react-router-dom";
 import { LeagueSettings } from "../../../types/leagueSettings";
 import TournamentScheduleTable from "../../Tournaments/components/TournamentScheduleTable";
@@ -12,11 +12,12 @@ import GolferTournamentDetailsTable from "../../Tournaments/components/GolferTou
 import { SettingsProvider } from "../state/settingsContext";
 import LoadingScreen from "../../Utils/components/LoadingScreen";
 import axios from "axios";
-import EditTournamentsButtons from "./EditTournamentsButtons";
-import { FantasyLeagueTournamentsResponse } from "../../../types/fantasyLeagueTournamentsResponse";
+import EditTournamentsButtons from "../../Tournaments/components/EditTournamentsButtons";
 import TimeZoneSelector from "./TimeZoneSelector";
 import UserManagement from "./UserManagement";
 import NotificationBanner from "../../Utils/components/NotificationBanner";
+import { setSelectedTournaments, fetchTournaments } from "../../Tournaments/state/tournamentsSlice";
+import LoadingWidget from "../../Utils/components/LoadingWidget";
 
 interface PointsPerScoreArgs {
   name: string;
@@ -28,15 +29,18 @@ const LeagueSettingsPage: React.FC = () => {
   const { leagueId } = useParams<string>();
   const isEditMode = Boolean(leagueId);
 
-  const goToNextSeasonSuccessBanner = useSelector((state: RootState) => state.leagues.goToNextSeasonSuccessBanner)
+  const goToNextSeasonSuccessBanner = useSelector((state: RootState) => state.leagues.goToNextSeasonSuccessBanner);
+  const tournamentError = useSelector((state: RootState) => state.tournaments.error);
+  const tournaments = useSelector((state: RootState) => state.tournaments.tournaments);
+  const leagueSettingsError = useSelector((state: RootState) => state.leagues.leagueSettingsError);
+  const leagueStatus = useSelector((state: RootState) => state.leagues.status);
+  const leagueSettingsStatus = useSelector((state: RootState) => state.leagues.leagueSettingsStatus);
 
   const [currentTab, setCurrentTab] = useState<string>("General");
   const [settings, setSettings] = useState<LeagueSettings | undefined>();
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const selectedLeague = useSelector((state: RootState) => state.leagues.selectedLeague);
-  const leaguesTeams = useSelector((state: RootState) => state.teams.leaguesTeams)
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
-  const [tournaments, setTournaments] = useState<FantasyLeagueTournamentsResponse | Tournament[]>();
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -80,26 +84,25 @@ const LeagueSettingsPage: React.FC = () => {
     fetchSettings();
   }, [isEditMode, selectedLeague]);
 
+  useEffect(() => {
+    if (leagueSettingsStatus === "succeeded") {
+      // Set a timeout to reset status to "idle" after 5 seconds
+      const timer = setTimeout(() => {
+        dispatch(updateLeagueSettingsStatus("idle"));
+      }, 5000);
+
+      // Cleanup the timer when the component unmounts
+      return () => clearTimeout(timer);
+    }
+  }, [leagueSettingsStatus, dispatch]);
+
   // Fetch tournaments only when necessary
   useEffect(() => {
-    const fetchTournaments = async () => {
-      if (!settings) return;
+    if (selectedLeague?.CurrentFantasyLeagueSeasonId || settings?.ProSeasonId) {
+      dispatch(fetchTournaments({ isEditMode, currentFantasyLeagueSeasonId: selectedLeague?.CurrentFantasyLeagueSeasonId, proSeasonId: settings?.ProSeasonId }))
+    }
 
-      try {
-        const tournamentsResponse = await axios.get(
-          isEditMode
-            ? `/api/fantasy_league_seasons/${selectedLeague?.CurrentFantasyLeagueSeasonId}/pro_season/competition_schedule`
-            : `/api/pro_seasons/${settings?.ProSeasonId}/competition_schedule`
-        );
-
-        setTournaments(tournamentsResponse.data);
-      } catch (error) {
-        console.error("Error fetching tournaments:", error);
-      }
-    };
-
-    fetchTournaments();
-  }, [isEditMode, selectedLeague?.CurrentFantasyLeagueSeasonId, settings?.ProSeasonId]);
+  }, [isEditMode, selectedLeague?.CurrentFantasyLeagueSeasonId]);
 
   // fetch the users associated with this league
 
@@ -169,8 +172,8 @@ const LeagueSettingsPage: React.FC = () => {
     const numBench = settings?.NumOfBenchGolfers ?? 0;
   
     return Array.from(
-      { length: Math.max(0, maxGolfers - numBench - 2 + 1) },
-      (_, i) => i + 2
+      { length: Math.max(0, maxGolfers - numBench + 1) },
+      (_, i) => i
     );
   }, [settings]);
 
@@ -184,8 +187,8 @@ const LeagueSettingsPage: React.FC = () => {
     const numStarters = settings?.NumOfStarters ?? 0;
   
     return Array.from(
-      { length: Math.max(0, maxGolfers - numStarters - 1 + 1) },
-      (_, i) => i + 1
+      { length: maxGolfers - numStarters - 1 + 2 },
+      (_, i) => i
     );
   }, [settings]);
 
@@ -230,55 +233,81 @@ const LeagueSettingsPage: React.FC = () => {
       );
   };
 
+  const addToTourneySet = (tournamentId: string) => {
+    dispatch(setSelectedTournaments(tournamentId));
+  };
+
   if (!settings) {
       return <LoadingScreen />
   };
 
   return (
   <div className="text-light w-full bg-dark flex flex-col items-center font-PTSans p-3 min-w-[570px] max-h-[calc(100vh-100px)]">
-      <div className="w-10/12 bg-middle p-6 rounded-lg shadow-xl font-PTSans items-center overflow-auto">
+            {/* Sticky Header */}
+        <div className="sticky top-0 z-10 bg-middle w-10/12 rounded-t-lg">
+          <div className="flex flex-row items-center p-4 w-full">
+            <div className="flex justify-start w-1/3">
+              <BackButton
+                size={8}
+                color="stroke-light"
+                handleBackClick={() => navigate(`/leagues/${leagueId}`)}
+              />
+            </div>
+            <div className="flex justify-center w-1/3">
+              <h1 className="text-2xl sm:text-xl md:text-xl lg:text-2xl font-bold text-center text-light">
+                League Settings
+              </h1>
+            </div>
+            <div className="w-1/3"></div>
+          </div>
 
-      <div className="flex flex-row items-center p-4 w-full">
-        <div className="flex justify-start w-1/3">
-          <BackButton
-            size={8}
-            color="stroke-light"
-            handleBackClick={() => navigate(`/leagues/${leagueId}`)}
-          />
-        </div>
-        <div className="flex justify-center w-1/3">
-          <h1 className="text-2xl sm:text-xl md:text-xl lg:text-2xl font-bold text-center text-light">
-            league settings
-          </h1>
-        </div>
-        <div className="w-1/3"></div>
+          {/* Tabs for Navigation */}
+          <div className="flex justify-center mb-4 text-light space-x-2">
+            {[
+              "General",
+              "Draft",
+              "Scoring",
+              "Team Management",
+              "Tournaments",
+              ...(selectedLeague?.IsCommish ? ["Users"] : []),
+            ].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setCurrentTab(tab)}
+                className={`px-4 py-2 rounded-t-lg text-sm sm:text-xs md:text-sm lg:text-sm ${
+                  currentTab === tab
+                    ? "bg-dark text-light"
+                    : "bg-light text-dark hover:brightness-125"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
       </div>
+      <div className="w-10/12 bg-middle p-6 rounded-b-lg shadow-xl font-PTSans items-center overflow-auto">
 
+        { leagueSettingsError ?
+          <NotificationBanner
+          message={leagueSettingsError}
+          variant="error"
+          timeout={10}
+          onClose={null}
+          />
+          :
+          ""
+        } 
+        { tournamentError ?
+        <NotificationBanner
+        message={tournamentError}
+        variant="error"
+        timeout={10}
+        onClose={null}
+        />
+        :
+        ""
+        }
 
-        {/* Tabs for Navigation */}
-        <div className="flex justify-center mb-6 text-light space-x-2">
-          {[
-            "General",
-            "Draft",
-            "Scoring",
-            "Team Management",
-            "Tournaments",
-            ...(selectedLeague?.IsCommish ? ["Users"] : []), // Add the "Users" tab conditionally
-          ].map((tab) => (
-            <button
-              key={tab} // Ensure each tab has a unique key
-              onClick={() => setCurrentTab(tab)}
-              className={`px-4 py-2 rounded-t-lg text-sm sm:text-xs md:text-sm lg:text-sm ${
-                currentTab === tab
-                  ? "bg-dark text-light"
-                  : "bg-light text-dark hover:brightness-125"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-        
         { goToNextSeasonSuccessBanner ?
         <NotificationBanner
         message={"New season has been created. Please add missing settings."}
@@ -393,7 +422,7 @@ const LeagueSettingsPage: React.FC = () => {
                 settings?.ForceDrops, 
                 Array.from(
                     { length: Math.max(0, settings!.MaxGolfersPerTeam - 1 + 1) }, 
-                    (_, i) => i 
+                    (_, i) => i + 1
                 ), 
                 !selectedLeague?.IsCommish)}
                 {renderInput("Max Golfers Per Team", "MaxGolfersPerTeam", "number", settings?.MaxGolfersPerTeam, [2, 3, 4, 5, 6], !selectedLeague?.IsCommish)}
@@ -419,7 +448,6 @@ const LeagueSettingsPage: React.FC = () => {
 
             {currentTab === "Tournaments" && tournaments &&
             (
-                
                 selectedTournament ? (
                 <>
                     <span className="inline-flex items-center">
@@ -441,11 +469,11 @@ const LeagueSettingsPage: React.FC = () => {
                     <SettingsProvider>
                         { !isEditMode ?
                           <TournamentScheduleTable
-                          tournaments={tournaments as Tournament[]}
+                          tournaments={tournaments.allTournaments}
+                          checkboxes={false}
                           />
                           :
                           <EditTournamentsButtons 
-                          setTournaments={setTournaments}
                           fantasyLeagueSeasonId={selectedLeague?.CurrentFantasyLeagueSeasonId!}
                           />
                         }
@@ -454,7 +482,7 @@ const LeagueSettingsPage: React.FC = () => {
                           tournaments && 
                           typeof tournaments === "object" && 
                           "pastFantasyLeagueTournaments" in tournaments &&
-                          tournaments?.pastFantasyLeagueTournaments.length > 0 && (
+                          tournaments?.pastFantasyLeagueTournaments!.length > 0 && (
                             // Render your tournamentScheduleTable here
                             <>
                               <h1 className="text-2xl font-bold p-4 text-center text-light">
@@ -462,6 +490,7 @@ const LeagueSettingsPage: React.FC = () => {
                               </h1>
                               <TournamentScheduleTable 
                               tournaments={tournaments?.pastFantasyLeagueTournaments}
+                              checkboxes={false}
                               />
                             </>
                           )
@@ -470,7 +499,7 @@ const LeagueSettingsPage: React.FC = () => {
                           tournaments && 
                           typeof tournaments === "object" && 
                           "upcomingFantasyLeagueTournaments" in tournaments &&
-                          tournaments?.upcomingFantasyLeagueTournaments.length > 0 && (
+                          tournaments?.upcomingFantasyLeagueTournaments!.length > 0 && (
                             // Render your tournamentScheduleTable here
                             <>
                               <h1 className="text-2xl font-bold p-4 text-center text-light">
@@ -479,15 +508,17 @@ const LeagueSettingsPage: React.FC = () => {
                               
                               <TournamentScheduleTable 
                               tournaments={tournaments?.upcomingFantasyLeagueTournaments}
+                              checkboxes
+                              disabledCheckboxes={false}
+                              handleCheckboxChange={(tournamentId) => addToTourneySet(tournamentId)}
                               />
                             </>
                           )
                         }
                         {
                           tournaments && 
-                          typeof tournaments === "object" && 
                           "upcomingProSeasonTournaments" in tournaments &&
-                          tournaments?.upcomingProSeasonTournaments.length > 0 && (
+                          tournaments?.upcomingProSeasonTournaments!.length > 0 && (
                             // Render your tournamentScheduleTable here
                             <>
                               <h1 className="text-2xl font-bold p-4 text-center text-light">
@@ -495,6 +526,9 @@ const LeagueSettingsPage: React.FC = () => {
                               </h1>
                               <TournamentScheduleTable 
                               tournaments={tournaments?.upcomingProSeasonTournaments}
+                              checkboxes
+                              disabledCheckboxes={false}
+                              handleCheckboxChange={(tournamentId) => addToTourneySet(tournamentId)}
                               />
                             </>
 
@@ -518,15 +552,23 @@ const LeagueSettingsPage: React.FC = () => {
 
         {/* Save Button */}
         <div className="flex justify-center mt-6">
-            <button
+          <button
             onClick={handleSave}
-            className={`bg-light text-dark px-6 py-3 rounded-lg shadow-2xl
-            ${!selectedLeague?.IsCommish ? "cursor-not-allowed opacity-50" : "hover:brightness-110"}
-            `}
+            className={`bg-light text-dark px-6 py-3 rounded-lg shadow-2xl ${
+              !selectedLeague?.IsCommish ? "cursor-not-allowed opacity-50" : "hover:brightness-110"
+            }`}
             disabled={!selectedLeague?.IsCommish}
-            >
+          >
             Save Settings
-            </button>
+            {leagueSettingsStatus === "pending" && (
+              <div className="w-4 h-4 border-4 border-middle border-t-transparent rounded-full animate-spin ml-1"></div>
+            )}
+            {leagueSettingsStatus === "succeeded" && (
+              <span className="ml-2 text-green-500 animate-pulse">
+                ✅ {/* Checkmark */}
+              </span>
+            )}
+          </button>
         </div>
       </div>
   );

@@ -53,7 +53,7 @@ def get_pro_season_competitions(pro_season_id):
                 tournament_dict["Purse"] = "$" + str(tournament_dict["Purse"]) + "M"
 
         # Respond with the tournaments, or an empty array if none found
-        return jsonify({"tournaments": tournament_dicts})
+        return jsonify({"upcomingProSeasonTournaments": tournament_dicts})
 
     return {"error": "There are no tournaments associated with this particular pro season."}, 404
     

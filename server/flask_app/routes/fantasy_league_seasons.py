@@ -44,7 +44,7 @@ def get_fantasy_league_tournament_schedule(fantasy_league_season_id):
     league_season = db.fantasyLeagueSeasons.find_one({"_id": ObjectId(fantasy_league_season_id)})
 
     if not league_season:
-        return abort(404, description="No fantasy league season found with that ID.")
+        return jsonify({"error": "Fantasy league season was not found."})
 
     tournament_ids = league_season.get("Tournaments", [])
 
@@ -112,4 +112,64 @@ def get_full_fantasy_competition_schedule(fantasy_league_season_id):
 
     return jsonify({"error": "Sorry, we could not find the tournaments you are looking for."}), 404
 
+@fantasy_league_seasons_bp.route('/<fantasy_league_season_id>/tournaments/<tournament_id>', methods=["DELETE"])
+def remove_tournament_from_fantasy_league_season(fantasy_league_season_id, tournament_id):
+    """remove a tournament from the fantasy league season calendar"""
+    fantasy_league_season = db.fantasyLeagueSeasons.find_one({
+        "_id": ObjectId(fantasy_league_season_id)
+    })
+
+    if not fantasy_league_season:
+        return jsonify({"error": "We could not find the fantasy league season you are looking for."})
+
+    tournament = db.tournaments.find_one({
+        "_id": ObjectId(tournament_id)
+    })
+
+    if not tournament:
+        return jsonify({"error": "We could not find the tournaments you are looking for."})
+
+    # determine if the tournament is in the fantasy league season
+    if tournament["_id"] not in fantasy_league_season["Tournaments"]:
+        return jsonify({"error": "We could not find the tournament you are looking for."})
+
+    # Remove the tournament from the Tournaments array
+    db.fantasyLeagueSeasons.update_one(
+        {"_id": ObjectId(fantasy_league_season_id)},
+        {"$pull": {"Tournaments": ObjectId(tournament_id)}}
+    )
+
+    return jsonify(Tournament(**tournament).to_dict())
+
+@fantasy_league_seasons_bp.route('/<fantasy_league_season_id>/tournaments', methods=["POST"])
+def add_tournament_to_fantasy_league_season(fantasy_league_season_id):
+    """add a tournament to the fantasy league season calendar"""
+    data = request.get_json()
+    tournament_id = data.get('tournamentId', None)
+
+    fantasy_league_season = db.fantasyLeagueSeasons.find_one({
+        "_id": ObjectId(fantasy_league_season_id)
+    })
+
+    if not fantasy_league_season:
+        return jsonify({"error": "We could not find the fantasy league season you are looking for."}), 404
+
+    tournament = db.tournaments.find_one({
+        "_id": ObjectId(tournament_id)
+    })
+
+    if not tournament:
+        return jsonify({"error": "We could not find the tournaments you are looking for."}), 404
+
+    # determine if the tournament is in the fantasy league season
+    if tournament["_id"] not in fantasy_league_season["Tournaments"]:
+        # Remove the tournament from the Tournaments array
+        db.fantasyLeagueSeasons.update_one(
+            {"_id": ObjectId(fantasy_league_season_id)},
+            {"$push": {"Tournaments": ObjectId(tournament_id)}}
+        )
+    else:
+        return jsonify({"error": "This tournament is already a part of the season"}), 400
+
+    return jsonify(Tournament(**tournament).to_dict())
 

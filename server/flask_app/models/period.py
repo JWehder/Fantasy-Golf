@@ -26,7 +26,6 @@ class Period(Base):
     FantasyLeagueSeasonId: PyObjectId
     Standings: Optional[List[PyObjectId]] = []                                        
     FreeAgentSignings: Optional[Dict[str, List[PyObjectId]]] = {}
-    Matchups: Optional[List[Tuple[PyObjectId, PyObjectId]]] = []
     Drops: Optional[Dict[PyObjectId, List]] = {}
     TournamentId: PyObjectId
     TeamResults: Optional[List[PyObjectId]] = Field(default_factory=list)  # Unique per instance
