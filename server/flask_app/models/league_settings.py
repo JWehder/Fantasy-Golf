@@ -52,6 +52,7 @@ class LeagueSettings(Base):
     WaiverType: str = Field(default="Reverse Standings", description="Determine the priority with which teams receive in picking up free agents")
     Sport: Literal["Golf"] = "Golf"
     ProSeasonId: PyObjectId
+    Waivers: Literal["On", "Off"] = "On"
 
     def determine_points_per_placing(self):
         if not self.PointsPerPlacing:
@@ -73,7 +74,7 @@ class LeagueSettings(Base):
         # Return the numbers that evenly divide the number of tournaments
         return [num for num in nums if num_of_tournaments % num == 0]
 
-    def save(self, league_id: Optional[PyObjectId] = None) -> Optional[ObjectId]:
+    def save(self) -> Optional[ObjectId]:
         self.updated_at = datetime.utcnow()
         if not self.created_at:
             self.created_at = self.updated_at
@@ -83,6 +84,8 @@ class LeagueSettings(Base):
         if '_id' in league_settings_dict and league_settings_dict['_id'] is not None:
             # Update existing document
             result = db.leagueSettings.update_one({'_id': league_settings_dict['_id']}, {'$set': league_settings_dict})
+
+            league_id = league_settings_dict["LeagueId"]
 
             # If league_id is provided, associate the new LeagueSettings with the League
             if league_id is not None:

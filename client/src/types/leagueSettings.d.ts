@@ -39,4 +39,5 @@ export interface LeagueSettings {
     ProSeasonId: string;
     ProSeason: string;
     IsCommish: boolean;
+    Waivers: string;
   }

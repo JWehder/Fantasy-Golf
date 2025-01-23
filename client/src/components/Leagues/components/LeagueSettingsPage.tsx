@@ -419,30 +419,46 @@ const LeagueSettingsPage: React.FC = () => {
                 {renderInput("Force Drops", 
                 "ForceDrops", 
                 "number", 
-                settings?.ForceDrops, 
+                settings.ForceDrops, 
                 Array.from(
                     { length: Math.max(0, settings!.MaxGolfersPerTeam - 1 + 1) }, 
                     (_, i) => i + 1
                 ), 
                 !selectedLeague?.IsCommish)}
                 {renderInput("Max Golfers Per Team", "MaxGolfersPerTeam", "number", settings?.MaxGolfersPerTeam, [2, 3, 4, 5, 6], !selectedLeague?.IsCommish)}
-                {renderInput(
-                "Waiver Type",
-                "WaiverType",
-                "text",
-                settings?.WaiverType,
-                ["Reverse Standings", "Rolling Waivers"],
-                !selectedLeague?.IsCommish
-                )}
 
                 {renderInput(
-                "Waiver Deadline",
-                "WaiverDeadline",
-                "text",
-                settings?.WaiverDeadline,
-                ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-                !selectedLeague?.IsCommish
+                    "Waivers",
+                    "Waivers",
+                    "text",
+                    settings?.Waivers,
+                    ["On", "Off"],
+                    !selectedLeague?.IsCommish
                 )}
+                { settings?.Waivers === "On" ?
+                  <>
+                    {renderInput(
+                    "Waiver Type",
+                    "WaiverType",
+                    "text",
+                    settings?.WaiverType,
+                    ["Reverse Standings", "Rolling Waivers"],
+                    !selectedLeague?.IsCommish
+                    )}
+
+                    {renderInput(
+                    "Waiver Deadline",
+                    "WaiverDeadline",
+                    "text",
+                    settings?.WaiverDeadline,
+                    ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+                    !selectedLeague?.IsCommish
+                    )}
+                  </>
+                  :
+                  ""
+                }
+
             </div>
             )}
 

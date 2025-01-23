@@ -14,7 +14,7 @@ from models import PyObjectId
 from config import db
 
 class GolferTournamentDetails(Base):
-    id: Optional[PyObjectId] = Field(alias='_id')
+    id: Optional[PyObjectId] = Field(default=None, alias='_id')  # Allow `_id` to be optional
     GolferId: PyObjectId
     Position: str
     Name: str

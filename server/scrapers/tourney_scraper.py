@@ -108,7 +108,7 @@ def parse_leaderboard(par, leaderboard, driver, specific_golfers=[]):
             "Cut": False
         }
 
-        # Position and Name
+        # Name
         golfer_full_name = row.find_element(By.CSS_SELECTOR, "a.AnchorLink").text.split(' ')
         golfer_tournament_results["Name"] = f"{golfer_full_name[0]} {' '.join(golfer_full_name[1:])}"
 
@@ -339,7 +339,7 @@ def parse_tournament_header(webpage_data):
         "PreviousWinner": previous_winner,
         "Par": par,
         "Yardage": yardage,
-        "status": status
+        "Status": status
         }
 
 def parse_winner_score(score_str):
@@ -522,13 +522,56 @@ def get_tournament_data(schedule_link: str):
 
         print(tourney_header_data)
 
+def parse_tee_time_leaderboard(leaderboard, tournament_id):
+    leaderboard_rows = leaderboard.find_elements(By.CSS_SELECTOR, "tr.PlayerRow__Overview")
+    
+    for leaderboard_row in leaderboard_rows:
+
+        golfer_full_name = leaderboard_row.find_element(By.CSS_SELECTOR, "a.AnchorLink.leaderboard_player_name").text.split(' ')
+        golfer_parsed_name = f"{golfer_full_name[0]} {' '.join(golfer_full_name[1:])}"
+
+        # get the tee time for the value
+        golfer_tee_time_str = leaderboard_row.find_element(By.CSS_SELECTOR, "td.tc.Table__TD").text
+
+        golfer_tournament_results = db.golfertournamentdetails.find_one({
+            "TournamentId": tournament_id,
+            "Name": golfer_parsed_name
+        })
+
+        if not golfer_tournament_results:
+            golfer_tournament_results = {
+                "Position": None,
+                "Name": None,
+                "Score": 0,
+                "R1": 0,
+                "R2": 0,
+                "R3": 0,
+                "R4": 0,
+                "TotalStrokes": None,
+                "Earnings": None,
+                "FedexPts": None,
+                "Rounds": [],
+                "WD": False,
+                "Cut": False,
+                "TeeTimes": {}
+            }
+
+            golfer_tournament_results["TeeTimes"]["Round 1"] = golfer_tee_time_str
+        else:
+            # need to add a tee time based on the current round
+            # db.golfertournamentdetails.update_one(
+            #     {"_id": golfer_tournament_results["_id"]},
+            #     {"$set": {"TeeTimes"}}
+            # )
+            pass
+
 if __name__ == "__main__":
 
     # Define the current date
     current_date = datetime.now()
 
     # Define the cutoff date
-    cutoff_date = datetime(2025, 1, 8)
+    cutoff_date = datetime(2025, 1, 27)
 
     # Query tournaments that ended before the cutoff date and have no associated golfertournamentdetails
     pipeline = [
@@ -577,9 +620,9 @@ if __name__ == "__main__":
 
         print(tournament['Links'][0])
 
-        if not tournament["Purse"] or not tournament["PreviousWinner"] or not tournament["Par"] or not tournament["Yardage"]:
-            tourney_header_data = parse_tournament_header(driver)
+        tourney_header_data = parse_tournament_header(driver)
 
+        if not tournament["Purse"] or not tournament["PreviousWinner"] or not tournament["Par"] or not tournament["Yardage"]:
             # Update the missing fields with the values from tourney_header_data
             tournament["Purse"] = tournament.get("Purse") or tourney_header_data.get("Purse")
             tournament["PreviousWinner"] = tournament.get("PreviousWinner") or tourney_header_data.get("PreviousWinner")
@@ -592,20 +635,38 @@ if __name__ == "__main__":
                 {"$set": tournament}          # Update the tournament document with new values
             )
         
-        if tournament["StartDate"] > current_date:
-            db.tournaments.update_one(
-                {"_id": tournament["_id"]},
-                {"$set": {"InProgress": False, "IsCompleted": True}}   
-            )
-
-        competitors_table = driver.find_element(By.CSS_SELECTOR, "div.competitors")
-
-        responsive_tables = competitors_table.find_elements(By.CSS_SELECTOR, "div.ResponsiveTable")
+        tournament["Status"] = tourney_header_data.get("Status")
 
         tournament_dict = dict(tournament)
 
-        tournament_dict["Golfers"] = parse_leaderboard(tournament_dict["Par"], responsive_tables[-1], driver)
+        try:
+            # Attempt to locate the competitors table
+            competitors_table = driver.find_element(By.CSS_SELECTOR, "div.competitors")
+            responsive_tables = competitors_table.find_elements(By.CSS_SELECTOR, "div.ResponsiveTable")
+
+            tournament_dict = dict(tournament)
+
+            if tournament_dict["Status"] == "Complete":
+                # Parse the leaderboard using the last responsive table
+                tournament_dict["Golfers"] = parse_leaderboard(
+                    tournament_dict["Par"], responsive_tables[-1], driver
+                )
+
+                db.tournaments.update_one(
+                    {"_id": tournament["_id"]},
+                    {"$set": {"InProgress": False, "IsCompleted": True}}
+                )
+
+                handle_golfer_data(tournament_dict, tournament["_id"])
+
+            elif tournament_dict["Status"] == "Ongoing":
+                # Handle the ongoing tournament case
+                parse_tee_time_leaderboard(responsive_tables, tournament["_id"])
+                
+        except NoSuchElementException as e:
+            print(f"Required element not found on the page: {e}")
+            # Optionally log this or take some recovery action
+
         
-        handle_golfer_data(tournament_dict, tournament["_id"])
 
 

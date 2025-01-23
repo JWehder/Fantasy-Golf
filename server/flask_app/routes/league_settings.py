@@ -67,12 +67,8 @@ def update_leagues_settings(leagues_settings_id):
 
         data = normalize_data_types(data)
 
-        print(data)
-
         # Merge the existing data with the new patch data
         updated_data = {**leagues_settings, **data}
-
-        print(updated_data)
         
         # Validate the merged data using the LeagueSettings model
         try:

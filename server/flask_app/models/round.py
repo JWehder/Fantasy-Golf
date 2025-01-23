@@ -67,12 +67,6 @@ class Round(Base):
             self.id = result.inserted_id
         return self.id
 
-    @field_validator('GolferTournamentDetailsId')
-    def golfer_details_exist(cls, v):
-        if not db.golfertournamentdetails.find_one({"_id": v}):
-            raise ValueError("No value found for that golfertournamentdetails id")
-        return v
-
     @field_validator('Score')
     def score_must_be_positive(cls, v):
         if v < -20 or v > 70:

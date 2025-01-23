@@ -14,12 +14,14 @@ from flask_app.config import db, client
 
 MAX_RETRIES = 5
 
-def process_round_data(round_data, golfer_details_id, round_id, session=None):
+def process_round_data(round_data, golfer_details_id, round_id):
+    hole_dicts = []
     for hole_data in round_data["Holes"]:
         hole_data["GolferTournamentDetailsId"] = golfer_details_id
         hole_data["RoundId"] = round_id
 
         hole = Hole(
+            _id=ObjectId(),
             Strokes=hole_data["Strokes"],
             HolePar=hole_data["HolePar"],
             Par=hole_data["Par"],
@@ -35,7 +37,11 @@ def process_round_data(round_data, golfer_details_id, round_id, session=None):
             RoundId=hole_data["RoundId"]
         )
 
-        hole.save()
+        hole_dict = hole.dict(by_alias=True, exclude_unset=True)
+        
+        hole_dicts.append(hole_dict)
+    
+    return hole_dicts
 
 def process_tournament_data(directory, use_transaction=False):
     def run_transaction_with_retry(txn_func, session):
@@ -69,7 +75,7 @@ def process_tournament_data(directory, use_transaction=False):
     else:
         process_files(directory)
 
-def process_files(directory, session=None):
+def process_files(directory):
     json_files = [os.path.join(directory, filename) for filename in os.listdir(directory) if filename.endswith(".json")]
 
     for json_file_path in json_files:
@@ -124,7 +130,13 @@ def handle_tournament_data(tournament_data: dict):
     return tournament_id
 
 def handle_golfer_data(tournament_data: dict, tournament_id: ObjectId):
-    print("for golfers")
+    from pymongo.errors import PyMongoError
+
+    print("Processing golfer data for the tournament.")
+
+    round_dicts = []
+    hole_dicts = []
+    golfer_tournament_details_dicts = []
 
     for golfer_data in tournament_data["Golfers"]:
         golfer_split_values = golfer_data["Name"].split(" ")
@@ -135,16 +147,13 @@ def handle_golfer_data(tournament_data: dict, tournament_id: ObjectId):
             "LastName": {"$regex": f"^{last_name}$", "$options": "i"}
         })
 
-        if golfer and "TournamentDetails" not in golfer:
-            db.golfers.update_one(
-                {"_id": golfer["_id"]},
-                {"$set": {"TournamentDetails": []}}
-            )
-
         if not golfer:
             continue
-
+        
+        golfer_details_id = ObjectId()
+        # Create an instance of GolferTournamentDetails
         golfer_details = GolferTournamentDetails(
+            _id=golfer_details_id,
             GolferId=golfer["_id"],
             Position=golfer_data.get("Position"),
             Name=golfer_data.get("Name"),
@@ -159,49 +168,63 @@ def handle_golfer_data(tournament_data: dict, tournament_id: ObjectId):
             TournamentId=tournament_id,
             Rounds=[],
             Cut=golfer_data.get("Cut"),
-            WD=golfer_data.get("WD")
+            WD=golfer_data.get("WD"),
         )
 
-        golfer_details_id = golfer_details.save()
-
-        db.golfers.update_one(
-            {"_id": golfer["_id"]},
-            {"$push": {"TournamentDetails": golfer_details_id}}
-        )
-
-        # hold all the rounds for this particular golfer detail
         round_ids = []
+        if "Rounds" in golfer_data:
+            for round_data in golfer_data["Rounds"]:
+                round_id = ObjectId()
+                # Create an instance of Round
+                round_instance = Round(
+                    _id=round_id,
+                    GolferTournamentDetailsId=golfer_details_id,
+                    Round=round_data.get("Round"),
+                    Birdies=round_data.get("Birdies"),
+                    Eagles=round_data.get("Eagles"),
+                    Pars=round_data.get("Pars"),
+                    Albatross=round_data.get("Albatross"),
+                    Bogeys=round_data.get("Bogeys"),
+                    DoubleBogeys=round_data.get("DoubleBogeys"),
+                    WorseThanDoubleBogeys=round_data.get("WorseThanDoubleBogeys"),
+                    Score=round_data.get("Score"),
+                    TournamentId=tournament_id,
+                    Holes=[],
+                )
 
-        for round_data in golfer_data["Rounds"]:
-            round = Round(
-                GolferTournamentDetailsId=golfer_details_id,
-                Round=round_data["Round"],
-                Birdies=round_data["Birdies"],
-                Eagles=round_data["Eagles"],
-                Pars=round_data["Pars"],
-                Albatross=round_data["Albatross"],
-                Bogeys=round_data["Bogeys"],
-                DoubleBogeys=round_data["DoubleBogeys"],
-                WorseThanDoubleBogeys=round_data["WorseThanDoubleBogeys"],
-                Score=round_data["Score"],
-                TournamentId=tournament_id,
-                Holes=[]
-            )
+                round_dict = round_instance.dict(by_alias=True, exclude_unset=True)
 
-            round_id = round.save()
-            round_ids.append(round_id)
+                # Validate and append round to lists
+                round_ids.append(round_id)
+                holes = process_round_data(round_data, golfer_details_id, round_id)
+                round_dict["Holes"] = [hole_dict for hole_dict in holes]
+                round_dicts.append(round_dict)
+                hole_dicts.extend(holes)
 
-            process_round_data(round_data, golfer_details_id, round_id)
+        golfer_details_dict = golfer_details.dict(by_alias=True, exclude_unset=True)
+        golfer_details_dict["Rounds"] = round_ids
+        golfer_tournament_details_dicts.append(golfer_details_dict)
 
-            db.rounds.update_one(
-                {"_id": round_id},
-                {"$set": {"Holes": list(db.holes.find({"RoundId": round_id}))}},
-            )
+    try:
+        # Start a session for the transaction
+        with db.client.start_session() as db_session:
+            with db_session.start_transaction():
+                # Insert golfer tournament details
+                if golfer_tournament_details_dicts:
+                    db.golfertournamentdetails.insert_many(golfer_tournament_details_dicts, session=db_session)
 
-        db.golfertournamentdetails.update_one(
-            {"_id": golfer_details_id},
-            {"$set": {"Rounds": round_ids}}
-        )
+                # Insert rounds
+                if round_dicts:
+                    db.rounds.insert_many(round_dicts, session=db_session)
+
+                # Insert holes
+                if hole_dicts:
+                    db.holes.insert_many(hole_dicts, session=db_session)
+
+                print("All golfer data successfully processed and stored.")
+
+    except PyMongoError as e:
+        raise RuntimeError(f"Failed to execute operations: {e}")
 
 if __name__ == "__main__":
     directory = "../results"  # Replace with the actual directory path
