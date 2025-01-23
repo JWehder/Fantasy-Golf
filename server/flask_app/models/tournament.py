@@ -17,6 +17,7 @@ class Tournament(Base):
     id: Optional[PyObjectId] = Field(alias='_id')
     EndDate: datetime
     StartDate: datetime
+    CurrentRoundNum: Optional[str] = "Round 1"
     Name: str
     Venue: List[str]
     City: str

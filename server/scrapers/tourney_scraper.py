@@ -11,8 +11,8 @@ import os
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 import pytz
 import sys
-import concurrent.futures
-from bson.objectid import ObjectId
+from create_missing_golfers_from_tournament_scraper import scrape_tournament_golfers
+from datetime import datetime, timedelta
 
 # Adjust the paths for MacOS
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -297,17 +297,6 @@ def parse_tournament_header(webpage_data):
         par_yardage = webpage_data.find_element(By.CSS_SELECTOR, "div.Leaderboard__Course__Location__Detail")
         par, yardage = re.findall(r'(\d+)', str(par_yardage.text))
 
-    # what's the status of the tournament? In progress, finished?
-    status = webpage_data.find_element(By.CSS_SELECTOR, "div.status")
-
-    # grab the specific element with the text that discloses the tournament status
-    status_text = status.find_element(By.CSS_SELECTOR, "span").text
-
-    if status_text == "Tournament Field":
-        status = "Upcoming"
-    elif status_text == "Final":
-        status = "Complete"
-
     # grab the tournament info from the header
     purse_previous_winner_text = webpage_data.find_element(By.CSS_SELECTOR, "div.n7").text
     print(purse_previous_winner_text)
@@ -338,8 +327,7 @@ def parse_tournament_header(webpage_data):
         "Purse": purse,
         "PreviousWinner": previous_winner,
         "Par": par,
-        "Yardage": yardage,
-        "Status": status
+        "Yardage": yardage
         }
 
 def parse_winner_score(score_str):
@@ -570,33 +558,15 @@ if __name__ == "__main__":
     # Define the current date
     current_date = datetime.now()
 
-    # Define the cutoff date
-    cutoff_date = datetime(2025, 1, 27)
+    # Calculate the date 4 days from now
+    four_days_from_now = datetime.utcnow() + timedelta(days=4)
 
-    # Query tournaments that ended before the cutoff date and have no associated golfertournamentdetails
-    pipeline = [
-        {
-            "$match": {
-                "EndDate": {"$lt": cutoff_date}
-            }
-        },
-        {
-            "$lookup": {
-                "from": "golfertournamentdetails",  # The name of the other collection
-                "localField": "_id",  # The field in the tournaments collection
-                "foreignField": "TournamentId",  # The field in golfertournamentdetails that references tournaments
-                "as": "details"  # The name of the array field to store the joined results
-            }
-        },
-        {
-            "$match": {
-                "details": {"$size": 0}  # Keep only tournaments with no associated details
-            }
-        }
-    ]
-
-    # Execute the aggregation pipeline
-    tournaments = list(db.tournaments.aggregate(pipeline))
+    # Query to find tournaments ending in less than 4 days
+    in_progress_tournaments = db.tournaments.find({
+        "InProgress": True,  # Ensure the tournament is still in progress
+        "StartDate": {"$gte": current_date},
+        "EndDate": {"$lte": four_days_from_now}  # End date within the next 4 days
+    })
 
     options = Options()
 
@@ -611,18 +581,23 @@ if __name__ == "__main__":
 
     driver = wd
 
-    for tournament in tournaments:
+    for tournament in in_progress_tournaments:
         # Remove "details" before updating the document
         tournament.pop("details", None)
+
+        scrape_tournament_golfers(tournament["Links"][0])
 
         # Load page
         driver.get(tournament['Links'][0])
 
         print(tournament['Links'][0])
 
-        tourney_header_data = parse_tournament_header(driver)
+        # what's the status of the tournament? In progress, finished?
+        status = driver.find_element(By.CSS_SELECTOR, "div.status")
 
         if not tournament["Purse"] or not tournament["PreviousWinner"] or not tournament["Par"] or not tournament["Yardage"]:
+            tourney_header_data = parse_tournament_header(driver)
+
             # Update the missing fields with the values from tourney_header_data
             tournament["Purse"] = tournament.get("Purse") or tourney_header_data.get("Purse")
             tournament["PreviousWinner"] = tournament.get("PreviousWinner") or tourney_header_data.get("PreviousWinner")
@@ -635,16 +610,14 @@ if __name__ == "__main__":
                 {"$set": tournament}          # Update the tournament document with new values
             )
         
-        tournament["Status"] = tourney_header_data.get("Status")
-
-        tournament_dict = dict(tournament)
-
         try:
             # Attempt to locate the competitors table
             competitors_table = driver.find_element(By.CSS_SELECTOR, "div.competitors")
             responsive_tables = competitors_table.find_elements(By.CSS_SELECTOR, "div.ResponsiveTable")
 
             tournament_dict = dict(tournament)
+
+            print(tournament_dict["Status"])
 
             if tournament_dict["Status"] == "Complete":
                 # Parse the leaderboard using the last responsive table
@@ -659,7 +632,7 @@ if __name__ == "__main__":
 
                 handle_golfer_data(tournament_dict, tournament["_id"])
 
-            elif tournament_dict["Status"] == "Ongoing":
+            elif tournament_dict["Status"] == "Upcoming":
                 # Handle the ongoing tournament case
                 parse_tee_time_leaderboard(responsive_tables, tournament["_id"])
                 
