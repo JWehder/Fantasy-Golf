@@ -144,20 +144,26 @@ export default function HolesComparisonChart({ rounds, holes } : { rounds: Round
             </div>
             <div className="flex flex-row p-2">
                 <TData>Strokes</TData>
-                {currentRoundData?.Holes.map((hole, idx) => {
-                    
-                    let strokes: number | string = hole.Strokes;
-                    if (hole.Strokes === 0) {
-                        strokes = "--";
-                    }
-                    return ( 
-                    <div key={idx} className="flex-grow flex items-center justify-center w-8">   
-                        <ScoreWrapper score={hole.NetScore}>
-                            <TData>{strokes}</TData>
-                        </ScoreWrapper>
-                    </div>
-                    )
-                })}
+                    {currentRoundData?.Holes.map((hole, idx) => {
+                        
+                        let strokes: number | string = hole.Strokes;
+                        if (hole.Strokes === 0 || null) {
+                            strokes = "--";
+                        }
+                        return ( 
+                        <div key={idx} className="flex-grow flex items-center justify-center w-8">   
+                            <ScoreWrapper score={hole.NetScore}>
+                                <TData>{strokes}</TData>
+                            </ScoreWrapper>
+                        </div>
+                        )
+                    })}
+                    {/* Fill missing holes with placeholders */}
+                    {Array.from({ length: 18 - currentRoundData?.Holes.length }).map((_, idx) => (
+                        <div key={`placeholder-${idx}`} className="flex-grow flex items-center justify-center w-8">
+                            <TData>--</TData>
+                        </div>
+                    ))}
             </div>
             <div className="flex flex-row p-2">
                 <TData>Ovr</TData>

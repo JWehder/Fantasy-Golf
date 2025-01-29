@@ -56,7 +56,7 @@ def get_golfer_links(driver, tournament_url):
     logging.info(f"Found {len(golfer_links)} golfers in the tournament.")
     return golfer_links
 
-def parse_golfer_details(driver, golfer_link):
+def parse_golfer_details(driver, golfer_link, golfer_first_name, golfer_last_name):
     """Parse golfer details from their profile page."""
     logging.info(f"Processing golfer profile: {golfer_link}")
     driver.get(golfer_link)
@@ -70,8 +70,7 @@ def parse_golfer_details(driver, golfer_link):
     
     # Extract basic info
     golfer_detail["Country"] = player_header.find_element(By.CSS_SELECTOR, "ul.PlayerHeader__Team_Info").text
-    player_name = player_header.find_element(By.CSS_SELECTOR, "h1.PlayerHeader__Name").text.split('\n')
-    golfer_detail["FirstName"], golfer_detail["LastName"] = [name[0] + name[1:].lower() for name in player_name]
+    golfer_detail["FirstName"], golfer_detail["LastName"] = golfer_first_name, golfer_last_name
 
     # Extract additional details
     for key, value in zip(keys, values):
@@ -123,7 +122,7 @@ def scrape_tournament_golfers(tournament_url):
                 golfer_links_not_in_db.append(golfer_link.get_attribute('href'))
 
         for golfer_link_not_in_db in golfer_links_not_in_db:
-            golfer_detail = parse_golfer_details(driver, golfer_link_not_in_db)
+            golfer_detail = parse_golfer_details(driver, golfer_link_not_in_db, first_name, last_name)
             golfers_not_in_db.append(golfer_detail)
 
         logging.info(f"Found {len(golfers_not_in_db)} golfers not in the database.")

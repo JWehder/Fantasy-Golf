@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import Field, field_validator
 from datetime import datetime
 from bson import ObjectId
@@ -18,7 +18,7 @@ class Hole(Base):
     Strokes: int
     HolePar: int
     Par: Optional[bool]
-    NetScore: Optional[int]
+    NetScore: Optional[Union[int, None]]
     HoleNumber: int
     Birdie: bool
     Bogey: bool

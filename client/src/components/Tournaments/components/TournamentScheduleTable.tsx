@@ -12,13 +12,17 @@ interface TournamentScheduleTableProps {
     checkboxes: boolean;
     disabledCheckboxes?: boolean;
     handleCheckboxChange?: (tournamentId: string) => void;
+    ongoingTournaments?: boolean;
+    handleTournamentClick: (tournament: Tournament) => void;
 }
 
 export default function TournamentScheduleTable({
     tournaments,
     checkboxes,
     disabledCheckboxes,
-    handleCheckboxChange
+    handleCheckboxChange,
+    ongoingTournaments,
+    handleTournamentClick
 }: TournamentScheduleTableProps) {
     const dispatch = useDispatch<AppDispatch>();
 
@@ -80,14 +84,21 @@ export default function TournamentScheduleTable({
                             firstTwoDatapoints={[
                                 tournament.StartDate,
                                 <div className="flex flex-col group-hover/team:translate-x-2 transition duration-200">
-                                    <span className="font-semibold text-md">{tournament.Name}</span>
-                                    <span className="text-light text-xs">{`${tournament.City}, ${tournament.State}`}</span>
+                                    <div className="flex items-center">
+                                        <span className="font-semibold text-md">{tournament.Name}</span>
+                                        { ongoingTournaments ? 
+                                        <div className="ml-2 h-2 w-2 bg-red-400 rounded-full animate-pulse items-center justify-center flex"></div>
+                                        :
+                                        ""
+                                        }
+                                    </div>
+                                <span className="text-light text-xs">{`${tournament.City}, ${tournament.State}`}</span>
                                 </div>,
                             ]}
                             data={tournament}
                             columns={desiredKeysSet}
                             brightness={idx % 2 === 0 ? "brightness-125" : ""}
-                            onClick={() => dispatch(setSelectedTournament(tournament))}
+                            onClick={() => handleTournamentClick(tournament)}
                             disabled={false}
                         />
                     </div>

@@ -97,14 +97,26 @@ def get_full_fantasy_competition_schedule(fantasy_league_season_id):
     # Find upcoming pro season tournaments not in the fantasy league season
     upcoming_pro_season_tournaments = db.tournaments.find(
         {
-            "_id": {"$nin": [ObjectId(t_id) for t_id in tournament_ids]},
+            "_id": {"$nin": tournament_ids},
             "StartDate": {"$gt": current_date_time},
             "ProSeasonId": pro_season_id
         }
     ).sort("StartDate").skip(offset).limit(limit)
 
+    # Find upcoming pro season tournaments not in the fantasy league season
+    curr_pro_season_tournaments = db.tournaments.find(
+        {
+            "_id": {"$nin": tournament_ids},
+            "InProgress": True,
+            "ProSeasonId": pro_season_id
+        }
+    ).sort("StartDate").skip(offset).limit(limit)
+
+    print(curr_pro_season_tournaments[0])
+
     if fantasy_league_tournaments or upcoming_pro_season_tournaments:
         return jsonify({
+            "currentProSeasonTournaments": convert_to_tournament_dicts(curr_pro_season_tournaments),
             "pastFantasyLeagueTournaments": convert_to_tournament_dicts(past_fantasy_league_tournaments),
             "upcomingFantasyLeagueTournaments": convert_to_tournament_dicts(upcoming_fantasy_league_tournaments),
             "upcomingProSeasonTournaments": convert_to_tournament_dicts(upcoming_pro_season_tournaments)

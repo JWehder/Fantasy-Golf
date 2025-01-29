@@ -169,6 +169,8 @@ def handle_golfer_data(tournament_data: dict, tournament_id: ObjectId):
             Rounds=[],
             Cut=golfer_data.get("Cut"),
             WD=golfer_data.get("WD"),
+            Today=golfer_data.get("Today"),
+            Thru=golfer_data.get("Thru")
         )
 
         round_ids = []

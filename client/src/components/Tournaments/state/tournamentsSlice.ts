@@ -181,6 +181,7 @@ const tournamentsSlice = createSlice({
                 if (isEditMode) {
                     // If `isEditMode`, data is an object with three keys
                     state.tournaments = {
+                    currentProSeasonTournaments: data.currentProSeasonTournaments || [],
                     pastFantasyLeagueTournaments: data.completedFantasyLeagueTournaments || [],
                     upcomingFantasyLeagueTournaments: data.upcomingFantasyLeagueTournaments || [],
                     upcomingProSeasonTournaments: data.upcomingProSeasonTournaments || []

@@ -496,6 +496,27 @@ const LeagueSettingsPage: React.FC = () => {
 
                         {
                           tournaments && 
+                          "currentProSeasonTournaments" in tournaments &&
+                          tournaments?.currentProSeasonTournaments!.length > 0 && (
+                            // Render your tournamentScheduleTable here
+                            <>
+                              <h1 className="text-2xl font-bold p-4 text-center text-light">
+                                ongoing tournaments
+                              </h1>
+                              <TournamentScheduleTable 
+                              tournaments={tournaments?.currentProSeasonTournaments}
+                              handleTournamentClick={(tournament) => setSelectedTournament(tournament)}
+                              ongoingTournaments
+                              checkboxes = {false}
+                              disabledCheckboxes={false}
+                              handleCheckboxChange={(tournamentId) => addToTourneySet(tournamentId)}
+                              />
+                            </>
+
+                          )
+                        }
+                        {
+                          tournaments && 
                           typeof tournaments === "object" && 
                           "pastFantasyLeagueTournaments" in tournaments &&
                           tournaments?.pastFantasyLeagueTournaments!.length > 0 && (

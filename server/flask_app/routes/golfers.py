@@ -42,7 +42,9 @@ def get_golfer_details(golfer_id):
 
         for golfer_details in all_golfers_details:
             try:
-                golfer_instance = GolferTournamentDetails(**golfer_details)
+                golfer_instance = GolferTournamentDetails(
+                    **golfer_details
+                )
                 rounds = rounds_collection.find({
                     "GolferTournamentDetailsId": ObjectId(golfer_instance.id)
                 })
@@ -66,7 +68,8 @@ def get_golfer_details(golfer_id):
                     "Position": "1" 
                 })
 
-                golfer_tourney_details_dict["HoleData"] = tournament_details["Holes"]
+                if "Holes" in tournament_details:
+                    golfer_tourney_details_dict["HoleData"] = tournament_details["Holes"]
                 golfer_tourney_details_dict["TournamentName"] = tournament_details["Name"]
                 golfer_tourney_details_dict["WinningScore"] = winning_golfer["Score"]
 
@@ -74,7 +77,7 @@ def get_golfer_details(golfer_id):
                 start_date = tournament_details["StartDate"]
 
                 # Format it to a readable string
-                readable_date = start_date.strftime("%B %d, %Y")  # e.g., "March 17, 2024"
+                readable_date = start_date.strftime("%m/%d/%Y")  # e.g., "March 17, 2024"
 
                 golfer_tourney_details_dict["StartDate"] = readable_date
 

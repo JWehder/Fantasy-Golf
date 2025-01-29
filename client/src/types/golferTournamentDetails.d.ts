@@ -22,4 +22,6 @@ export interface GolferTournamentDetails {
     WinningScore: string
     StartDate: string
     HoleData: TournamentHoles[]
+    Today?: string
+    Thru?: string
 }

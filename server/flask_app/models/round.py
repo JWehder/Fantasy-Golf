@@ -17,7 +17,7 @@ class HoleData(Base):
     _id: Optional[PyObjectId]
     Strokes: int
     Par: bool
-    NetScore: int
+    NetScore: Union[int, None]
     HoleNumber: int
     Birdie: bool
     Bogey: bool

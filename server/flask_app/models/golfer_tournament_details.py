@@ -16,16 +16,18 @@ from config import db
 class GolferTournamentDetails(Base):
     id: Optional[PyObjectId] = Field(default=None, alias='_id')  # Allow `_id` to be optional
     GolferId: PyObjectId
-    Position: str
-    Name: str
+    Position: str = None
+    Name: str = None
     Score: Union[int, str]
     R1: Union[int, str]
     R2: Union[int, str]
     R3: Union[int, str]
     R4: Union[int, str]
+    Today: Optional[str] = None
+    Thru: Optional[str] = None
     TotalStrokes: Union[int, str]
-    Earnings: str
-    FedexPts: str 
+    Earnings: str = None
+    FedexPts: str = None
     TournamentId: PyObjectId
     Rounds: List[PyObjectId]
     created_at: Optional[datetime] = None

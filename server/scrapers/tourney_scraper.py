@@ -91,11 +91,34 @@ def parse_leaderboard(par, leaderboard, driver, specific_golfers=[]):
 
     table_rows = competitors_table.find_elements(By.CSS_SELECTOR, "tr.PlayerRow__Overview")
 
+    headers = competitors_table.find_elements(By.CSS_SELECTOR, "th")
+    mapped_headers = [header.text for header in headers]
+
+    # Map known table headers to keys in the golfer_tournament_results dictionary
+    table_headers_equivalents = {
+        "POS": "Position",
+        "PLAYER": "Name",
+        "SCORE": "Score",
+        "TODAY": "Today",
+        "THRU": "Thru",
+        "R1": "R1",
+        "R2": "R2",
+        "R3": "R3",
+        "R4": "R4",
+        "TOT": "TotalStrokes",
+        "EARNINGS": "Earnings",
+        "FEDEX PTS": "FedexPts"
+    }
+
+    # Process each row in the table
     for row in table_rows:
+        # Initialize golfer results with default values
         golfer_tournament_results = {
             "Position": None,
             "Name": None,
             "Score": 0,
+            "Today": 0,
+            "Thru": 0,
             "R1": 0,
             "R2": 0,
             "R3": 0,
@@ -108,36 +131,44 @@ def parse_leaderboard(par, leaderboard, driver, specific_golfers=[]):
             "Cut": False
         }
 
-        # Name
-        golfer_full_name = row.find_element(By.CSS_SELECTOR, "a.AnchorLink").text.split(' ')
-        golfer_tournament_results["Name"] = f"{golfer_full_name[0]} {' '.join(golfer_full_name[1:])}"
+        # Extract golfer name
+        try:
+            golfer_full_name = row.find_element(By.CSS_SELECTOR, "a.AnchorLink.leaderboard_player_name").text.split(' ')
+            golfer_tournament_results["Name"] = f"{golfer_full_name[0]} {' '.join(golfer_full_name[1:])}"
+        except Exception as e:
+            print(f"Error extracting golfer name: {e}")
+            continue
 
-        # determine if the golfertournamentdetails 
-
-        golfer_tournament_results["Position"] = row.find_element(By.CSS_SELECTOR, "td.tl").text
-
+        # If specific golfers are provided, filter by name
         if specific_golfers and golfer_tournament_results["Name"] not in specific_golfers:
             continue
 
-        # Other tournament data
-        remaining = row.find_elements(By.CSS_SELECTOR, "td.Table__TD")
-        int_fields = ["Score", "R1", "R2", "R3", "R4", "TotalStrokes"]
-        for key, element in zip(golfer_tournament_results.keys(), remaining[1:]):
-            if key == "Score" and element.text in ["WD", "CUT"]:
-                golfer_tournament_results["WD"] = element.text == "WD"
-                golfer_tournament_results["Cut"] = element.text == "CUT"
-                golfer_tournament_results[key] = 0
-            elif key in int_fields:
-                try:
-                    golfer_tournament_results[key] = int(element.text)
-                except ValueError:
-                    golfer_tournament_results[key] = 0
-            else:
-                golfer_tournament_results[key] = element.text
+        # Extract table row data
+        row_data = row.find_elements(By.CSS_SELECTOR, "td.Table__TD")
+        row_text = [cell.text.strip() for cell in row_data]
 
-        # Earnings
-        golfer_tournament_results['Earnings'] = ''.join(re.findall(r'(\d+)', golfer_tournament_results['Earnings'])) if golfer_tournament_results['Earnings'] else ''
-
+        # Map data to headers using table_headers_equivalents
+        for header, value in zip(mapped_headers, row_text):
+            equivalent_key = table_headers_equivalents.get(header.upper())  # Get the mapped key
+            if equivalent_key in golfer_tournament_results:
+                # Handle special cases for "Score", "WD", "CUT", and numeric fields
+                if equivalent_key == "Score":
+                    if value == "WD":
+                        golfer_tournament_results["WD"] = True
+                        golfer_tournament_results["Cut"] = False
+                    elif value == "CUT":
+                        golfer_tournament_results["Cut"] = True
+                        golfer_tournament_results["WD"] = False
+                elif equivalent_key == "Earnings":
+                    # Parse numeric earnings
+                    golfer_tournament_results["Earnings"] = ''.join(re.findall(r'(\d+)', value)) if value else None
+                elif equivalent_key in ["R1", "R2", "R3", "R4", "TotalStrokes"]:
+                    try:
+                        golfer_tournament_results[equivalent_key] = int(value)
+                    except ValueError:
+                        golfer_tournament_results[equivalent_key] = value
+                else:
+                    golfer_tournament_results[equivalent_key] = value
         # Reveal and parse round details
         actions = ActionChains(driver)
         actions.move_to_element(row).perform()
@@ -165,7 +196,6 @@ def parse_leaderboard(par, leaderboard, driver, specific_golfers=[]):
             WebDriverWait(driver, 2).until_not(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, "div.Leaderboard__Player__Detail"))
             )
-
         golfers.append(golfer_tournament_results)
 
     return golfers
@@ -189,92 +219,86 @@ def parse_round_details(player_detail, round_text, wd_bool, par):
     total_score_elements = table.find_elements(By.CSS_SELECTOR, "span.Scorecard__Score.total")
 
     scores = [elem.text for elem in score_elements]
-    midpoint = len(scores) // 2
+    midpoint = len(scores) // 2  # Adjust splitting dynamically
     par_score_scores = scores[:midpoint]
     golfer_scores = scores[midpoint:]
 
-    parsed_par = int(par)
-    total_strokes = total_score_elements[7].text
+    # Safely parse par and strokes
+    try:
+        parsed_par = int(par)
+    except ValueError:
+        parsed_par = 0  # Default to 0 if parsing fails
 
-    if not wd_bool:
-        round_detail["Score"] = int(total_strokes) - int(parsed_par)
+    try:
+        total_strokes = int(total_score_elements[7].text) if total_score_elements else 0
+    except ValueError:
+        total_strokes = 0
 
     import numpy as np
+    hole_strokes = np.array(
+        [int(match) if match.isdigit() else np.nan for match in golfer_scores],
+        dtype=np.float32
+    )
+    par_scores = np.array(
+        [int(match) if match.isdigit() else np.nan for match in par_score_scores],
+        dtype=np.float32
+    )
 
-    # Handle strokes and par scores, considering that some values might be "-"
-    hole_strokes = np.array([int(match) if match != "-" else np.nan for match in golfer_scores], dtype=np.float32)
-    par_scores = np.array([int(match) if match != '' else np.nan for match in par_score_scores], dtype=np.float32)
+    # Update total strokes and par
+    round_detail["StrokesPlayed"] = total_strokes
+    round_detail["TotalPar"] = parsed_par
 
-    # Handle strokes played and total par, using integers as they are whole numbers
-    round_detail["StrokesPlayed"] = int(total_strokes)
-    round_detail["TotalPar"] = int(parsed_par)
-
-    # Initialize the hole number
-    hole = 1
-
-    # Calculate net scores by subtracting par scores from hole strokes
+    # Calculate net scores
     net_scores = hole_strokes - par_scores
 
-    # Use numpy for efficient boolean masking for each score type
-    albatross = net_scores == -3
-    eagle = net_scores == -2
-    birdie = net_scores == -1
-    par = net_scores == 0
-    bogey = net_scores == 1
-    double_bogey = net_scores == 2
-    worse_than_double_bogey = net_scores > 2
-
-    # Initialize lists to store hole results and update round totals
-    round_detail["Holes"] = []
-    round_detail['Albatross'] = 0
-    round_detail['Eagles'] = 0
-    round_detail['Birdies'] = 0
-    round_detail['Pars'] = 0
-    round_detail['Bogeys'] = 0
-    round_detail['DoubleBogeys'] = 0
-    round_detail['WorseThanDoubleBogeys'] = 0
-
-    # Iterate over the holes and score types, calculating hole results
-    for i, (strokes, par_score) in enumerate(zip(hole_strokes, par_scores), start=1):
-        score = None if np.isnan(strokes) or np.isnan(par_score) else int(strokes - par_score)
+    # Process each hole
+    for i, (strokes, par_score, net_score) in enumerate(zip(hole_strokes, par_scores, net_scores), start=1):
+        if np.isnan(strokes) or np.isnan(par_score):
+            continue
+        else:
+            score = int(net_score)
 
         hole_result = {
-            'Strokes': int(strokes) if not np.isnan(strokes) else 0,
-            'HolePar': int(par_score) if not np.isnan(par_score) else 0,
-            'NetScore': score,
-            "HoleNumber": hole,
-            'Birdie': birdie[i-1],
-            'Bogey': bogey[i-1],
-            'Par': par[i-1],
-            'Eagle': eagle[i-1],
-            'Albatross': albatross[i-1],
-            'DoubleBogey': double_bogey[i-1],
-            'WorseThanDoubleBogey': worse_than_double_bogey[i-1],
+            "Strokes": int(strokes) if not np.isnan(strokes) else 0,
+            "HolePar": int(par_score) if not np.isnan(par_score) else 0,
+            "NetScore": score,
+            "HoleNumber": i,
+            "Birdie": score == -1,
+            "Bogey": score == 1,
+            "Par": score == 0,
+            "Eagle": score == -2,
+            "Albatross": score == -3,
+            "DoubleBogey": score == 2,
+            "WorseThanDoubleBogey": score > 2 if score is not None else False,
         }
 
         round_detail["Holes"].append(hole_result)
 
         # Update round totals
-        if albatross[i-1]:
-            round_detail['Albatross'] += 1
-        elif eagle[i-1]:
-            round_detail['Eagles'] += 1
-        elif birdie[i-1]:
-            round_detail['Birdies'] += 1
-        elif par[i-1]:
-            round_detail['Pars'] += 1
-        elif bogey[i-1]:
-            round_detail['Bogeys'] += 1
-        elif double_bogey[i-1]:
-            round_detail['DoubleBogeys'] += 1
-        elif worse_than_double_bogey[i-1]:
-            round_detail['WorseThanDoubleBogeys'] += 1
+        if score == -3:
+            round_detail["Albatross"] += 1
+        elif score == -2:
+            round_detail["Eagles"] += 1
+        elif score == -1:
+            round_detail["Birdies"] += 1
+        elif score == 0:
+            round_detail["Pars"] += 1
+        elif score == 1:
+            round_detail["Bogeys"] += 1
+        elif score == 2:
+            round_detail["DoubleBogeys"] += 1
+        elif score and score > 2:
+            round_detail["WorseThanDoubleBogeys"] += 1
 
-        hole += 1
-
-    # If WD (withdrawn), determine score from holes
+    # Adjust score for WD
     if wd_bool:
         round_detail["Score"] = determine_score_from_holes(round_detail["Holes"])
+    else:
+        round_detail["Score"] = sum(
+            hole["Strokes"] - hole["HolePar"]
+            for hole in round_detail["Holes"]
+            if hole["Strokes"] is not None and hole["HolePar"] is not None
+        )
 
     return round_detail
 
@@ -543,8 +567,6 @@ def parse_tee_time_leaderboard(leaderboard, tournament_id):
                 "Cut": False,
                 "TeeTimes": {}
             }
-
-            golfer_tournament_results["TeeTimes"]["Round 1"] = golfer_tee_time_str
         else:
             # need to add a tee time based on the current round
             # db.golfertournamentdetails.update_one(
@@ -564,7 +586,6 @@ if __name__ == "__main__":
     # Query to find tournaments ending in less than 4 days
     in_progress_tournaments = db.tournaments.find({
         "InProgress": True,  # Ensure the tournament is still in progress
-        "StartDate": {"$gte": current_date},
         "EndDate": {"$lte": four_days_from_now}  # End date within the next 4 days
     })
 
@@ -617,24 +638,15 @@ if __name__ == "__main__":
 
             tournament_dict = dict(tournament)
 
-            print(tournament_dict["Status"])
+            # Parse the leaderboard using the last responsive table
+            tournament_dict["Golfers"] = parse_leaderboard(
+                tournament_dict["Par"], responsive_tables[-1], driver
+            )
 
-            if tournament_dict["Status"] == "Complete":
-                # Parse the leaderboard using the last responsive table
-                tournament_dict["Golfers"] = parse_leaderboard(
-                    tournament_dict["Par"], responsive_tables[-1], driver
-                )
+            handle_golfer_data(tournament_dict, tournament["_id"])
 
-                db.tournaments.update_one(
-                    {"_id": tournament["_id"]},
-                    {"$set": {"InProgress": False, "IsCompleted": True}}
-                )
-
-                handle_golfer_data(tournament_dict, tournament["_id"])
-
-            elif tournament_dict["Status"] == "Upcoming":
-                # Handle the ongoing tournament case
-                parse_tee_time_leaderboard(responsive_tables, tournament["_id"])
+            # Handle the ongoing tournament case
+            # parse_tee_time_leaderboard(responsive_tables, tournament["_id"])
                 
         except NoSuchElementException as e:
             print(f"Required element not found on the page: {e}")
