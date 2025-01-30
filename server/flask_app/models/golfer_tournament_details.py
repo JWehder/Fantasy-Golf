@@ -23,13 +23,14 @@ class GolferTournamentDetails(Base):
     R2: Union[int, str]
     R3: Union[int, str]
     R4: Union[int, str]
-    Today: Optional[str] = None
-    Thru: Optional[str] = None
+    Today: Optional[Union[int, str]] = None
+    Thru: Optional[Union[int, str]] = None
     TotalStrokes: Union[int, str]
     Earnings: str = None
     FedexPts: str = None
     TournamentId: PyObjectId
     Rounds: List[PyObjectId]
+    TeeTimes: Optional[dict] = {}
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

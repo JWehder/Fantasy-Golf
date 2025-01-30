@@ -4,11 +4,17 @@ import React, { useState, useMemo } from "react";
 import { Round } from "../../../../types/rounds";
 import { TournamentHoles } from "../../../../types/tournamentHoles";
 import { ScoreWrapper } from "./ScoreWrapper";
+import { useFetchGolferTournamentRounds } from "../../../../hooks/rounds";
 
-export default function HolesComparisonChart({ rounds, holes } : { rounds: Round[], holes: TournamentHoles[] }) {
+export default function HolesComparisonChart({ detailId, holes } : { detailId, holes: TournamentHoles[] }) {
     const [currentRound, setCurrentRound] = useState<number>(0);
     const [showSummary, setShowSummary] = useState<boolean>(true);
     const [selectCurrentRound, setSelectCurrentRound] = useState<number>(rounds.length);
+
+    const { data,
+        isFetching,
+        isSuccess,
+        isError } = useFetchGolferTournamentRounds(tournamentId);
 
     // Handle cases where rounds data is missing or empty
     if (!rounds || rounds.length === 0) {

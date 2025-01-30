@@ -30,6 +30,6 @@ def delete_tournament_data(tournament_id):
     
 if __name__ == "__main__":
     # Replace 'your_tournament_id_here' with the actual tournament id
-    tournament_id = ObjectId('66a6cd266556c7133a4b2f06')# "your_tournament_id_here"
+    tournament_id = ObjectId('6631732e74d57119dcdd0a22')# "your_tournament_id_here"
     delete_tournament_data(tournament_id)
     print(f"All data associated with the tournament {tournament_id} has been deleted.")

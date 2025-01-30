@@ -6,12 +6,14 @@ import { TournamentHoles } from "../../../types/tournamentHoles";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../store";
 import SkeletonTable from "../../Utils/components/SkeletonTable";
+import GolferTeeTimes from "../../Golfers/components/GolferTeeTimes";
 
 export default function GolferTournamentDetailsTable(
-    { tournamentId, holeData } : 
+    { tournamentId, holeData, currentRoundNum } : 
     {
         tournamentId: string,
-        holeData: TournamentHoles[]
+        holeData: TournamentHoles[],
+        currentRoundNum: string
     
     }) {
 
@@ -31,36 +33,50 @@ export default function GolferTournamentDetailsTable(
 
     return (
         <div className="bg-middle rounded-xl text-light overflow-auto">
-        <TableHeaders 
-        headers={tournamentHeaders}
-        />
-        {isSuccess && data?.details && (
-            leaguesGolferTournamentDetailsIds ? (
-                // Filter by IDs present in leaguesGolferTournamentDetailsIds
-                data.details
-                    .filter((detail) => leaguesGolferTournamentDetailsIds.has(detail.id))
-                    .map((detail, idx) => (
+        { data?.roundsExist ?
+            <TableHeaders 
+            headers={tournamentHeaders}
+            />
+            :
+            ""
+        }
+        {data?.roundsExist ? (
+            isSuccess && data?.details && (
+                leaguesGolferTournamentDetailsIds ? (
+                    // Filter by IDs present in leaguesGolferTournamentDetailsIds
+                    data.details
+                        .filter((detail) => leaguesGolferTournamentDetailsIds.has(detail.id))
+                        .map((detail, idx) => (
+                            <GolferTournamentDetailsTd 
+                                key={detail.id}  // Always include a key when mapping
+                                detail={detail}
+                                desiredKeysSet={desiredKeysSet}
+                                holeData={holeData}
+                                idx={idx}
+                            />
+                        ))
+                ) : (
+                    // Render without filtering if leaguesGolferTournamentDetailsIds is not available
+                    data.details.map((detail, idx) => (
                         <GolferTournamentDetailsTd 
-                            key={detail.id}  // Always include a key when mapping
+                            key={detail.id}
                             detail={detail}
                             desiredKeysSet={desiredKeysSet}
                             holeData={holeData}
                             idx={idx}
                         />
                     ))
-            ) : (
-                // Render without filtering if leaguesGolferTournamentDetailsIds is not available
-                data.details.map((detail, idx) => (
-                    <GolferTournamentDetailsTd 
-                        key={detail.id}
-                        detail={detail}
-                        desiredKeysSet={desiredKeysSet}
-                        holeData={holeData}
-                        idx={idx}
-                    />
-                ))
+                )
+            )
+        ) : (
+            isSuccess && data?.details && (
+                <GolferTeeTimes
+                    golfers={data.details}
+                    currentRoundNum={currentRoundNum}
+                />
             )
         )}
+
 
         { isError && <div>Error loading tournament details.</div> }
         { isFetching && <SkeletonTable /> }

@@ -4,6 +4,7 @@ import os
 from bson.objectid import ObjectId
 import traceback
 from pydantic import ValidationError
+from datetime import datetime
 
 # Adjust the paths for MacOS to get the flask_app directory
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -15,6 +16,12 @@ golfer_tournament_details_collection = db.golfertournamentdetails
 
 golfer_tournament_details_bp = Blueprint('golfers_tournament_details', __name__)
 
+def format_tee_time(tee_time):
+    # Ensure tee_time is a datetime object
+    if isinstance(tee_time, datetime):
+        return tee_time.strftime("%-I:%M %p")  # Use %-I for Unix/macOS, %I:%M %p for Windows
+    return None  # Handle cases where the value might not be a datetime
+    
 @golfer_tournament_details_bp.route('/<golfers_tournament_details_id>', methods=['GET'])
 def get_golfers_tournament_details(golfers_tournament_details_id):
     """Fetches a hole by ID"""
@@ -70,19 +77,28 @@ def get_all_tournament_details_by_golfer(golfer_id):
 def get_all_golfer_tournament_details_for_tournament(tournament_id: str):
     """gets all the golfer tournament details associated with a tournament"""
 
-    if not db.tournaments.find_one({ "_id": ObjectId(tournament_id) }):
+    tournament = db.tournaments.find_one({ "_id": ObjectId(tournament_id) })
+
+    if not tournament:
         return jsonify({"error": "Could not find the tournament that you are looking for."}), 404
 
     all_golfer_tournament_details = db.golfertournamentdetails.find({
         "TournamentId": ObjectId(tournament_id)
     }).sort([("WD", 1), ("Cut", 1), ("Score", 1)])
 
+    rounds_exists = db.rounds.count_documents({"TournamentId": ObjectId(tournament_id)}) > 0
+
     if all_golfer_tournament_details:
         all_golfer_tournament_details_list = []
 
         for golfer_tournament_detail in all_golfer_tournament_details:
             try:
+                
                 golfer_tournament_detail_instance = GolferTournamentDetails(**golfer_tournament_detail)
+
+                if "CurrentRoundNum" in tournament:
+                    current_round = tournament["CurrentRoundNum"]
+                    golfer_tournament_detail_instance.TeeTimes[current_round] = format_tee_time(golfer_tournament_detail_instance.TeeTimes[current_round])
 
                 rounds = db.rounds.find({
                     "GolferTournamentDetailsId": ObjectId(golfer_tournament_detail_instance.id)
@@ -111,7 +127,7 @@ def get_all_golfer_tournament_details_for_tournament(tournament_id: str):
 
         if all_golfer_tournament_details_list:
             try:
-                return jsonify({"details": all_golfer_tournament_details_list}), 200
+                return jsonify({"details": all_golfer_tournament_details_list, "roundsExist": rounds_exists }), 200
             except Exception as e:
                 # Catch any other exceptions and print the traceback
                 print("An unexpected error occurred:", type(e).__name__)

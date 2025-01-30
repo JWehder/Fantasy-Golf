@@ -15,8 +15,10 @@ from flask_app.config import db, client
 MAX_RETRIES = 5
 
 def process_round_data(round_data, golfer_details_id, round_id):
+
     hole_dicts = []
     for hole_data in round_data["Holes"]:
+        if "_id" in hole_data: continue
         hole_data["GolferTournamentDetailsId"] = golfer_details_id
         hole_data["RoundId"] = round_id
 
@@ -170,7 +172,8 @@ def handle_golfer_data(tournament_data: dict, tournament_id: ObjectId):
             Cut=golfer_data.get("Cut"),
             WD=golfer_data.get("WD"),
             Today=golfer_data.get("Today"),
-            Thru=golfer_data.get("Thru")
+            Thru=golfer_data.get("Thru"),
+            TeeTimes=golfer_data.get("TeeTimes")
         )
 
         round_ids = []

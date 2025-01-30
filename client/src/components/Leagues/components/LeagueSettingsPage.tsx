@@ -477,6 +477,7 @@ const LeagueSettingsPage: React.FC = () => {
                     <GolferTournamentDetailsTable
                     tournamentId={selectedTournament.id}
                     holeData={selectedTournament.Holes}
+                    currentRoundNum={selectedTournament.CurrentRoundNum}
                     />
                 </>
                 ) : (
@@ -487,6 +488,7 @@ const LeagueSettingsPage: React.FC = () => {
                           <TournamentScheduleTable
                           tournaments={tournaments.allTournaments}
                           checkboxes={false}
+                          handleTournamentClick={(tournament) => setSelectedTournament(tournament)}
                           />
                           :
                           <EditTournamentsButtons 
@@ -528,6 +530,7 @@ const LeagueSettingsPage: React.FC = () => {
                               <TournamentScheduleTable 
                               tournaments={tournaments?.pastFantasyLeagueTournaments}
                               checkboxes={false}
+                              handleTournamentClick={(tournament) => setSelectedTournament(tournament)}
                               />
                             </>
                           )
@@ -548,6 +551,7 @@ const LeagueSettingsPage: React.FC = () => {
                               checkboxes
                               disabledCheckboxes={false}
                               handleCheckboxChange={(tournamentId) => addToTourneySet(tournamentId)}
+                              handleTournamentClick={(tournament) => setSelectedTournament(tournament)}
                               />
                             </>
                           )
@@ -566,6 +570,7 @@ const LeagueSettingsPage: React.FC = () => {
                               checkboxes
                               disabledCheckboxes={false}
                               handleCheckboxChange={(tournamentId) => addToTourneySet(tournamentId)}
+                              handleTournamentClick={(tournament) => setSelectedTournament(tournament)}
                               />
                             </>
 

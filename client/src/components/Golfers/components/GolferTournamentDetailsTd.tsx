@@ -26,6 +26,7 @@ export default function GolferTournamentDetailsTd({ detail, desiredKeysSet, idx,
             />
             {showHolesComparisonChart && (
                 <HolesComparisonChart
+                    detailId={detail.id}
                     rounds={detail.Rounds}
                     holes={holeData}
                 />

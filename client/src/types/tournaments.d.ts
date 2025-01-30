@@ -4,6 +4,7 @@ export interface Tournament {
     id: string
     EndDate: string
     StartDate: string
+    CurrentRoundNum: string
     Name: string
     Venue: string[]
     City: string

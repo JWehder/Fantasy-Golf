@@ -54,6 +54,7 @@ export default function Tourney({ tournament } : { tournament: Tournament }) {
                             }
                         </p>
                         <p>Purse: {tournament.Purse}</p>
+                        <p>{tournament.CurrentRoundNum}</p>
                     </div>
                 </div>
                 <div className="flex-1 text-right pb-2">

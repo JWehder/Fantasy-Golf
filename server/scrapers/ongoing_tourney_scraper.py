@@ -15,7 +15,7 @@ from create_missing_golfers_from_tournament_scraper import scrape_tournament_gol
 from datetime import datetime, timedelta
 import logging
 from bson.objectid import ObjectId
-from scripts.create_tourneys import handle_golfer_data
+from pydantic import ValidationError
 
 from tourney_scraper import parse_round_details
 from scripts.create_tourneys import process_round_data
@@ -71,9 +71,12 @@ def scrape_ongoing_tournament(driver, leaderboard, tournament, specific_golfers=
 
         golfer_overview_data = extract_golfer_overview(row, mapped_headers, table_headers_equivalents, curr_round_int)
 
+        golfer_overview_data["Name"] = golfer_name
+
         if not golfer_overview_data["WD"] or not golfer_overview_data["Cut"] and curr_round_int > 2:
 
             golfer_tournament_details = incomplete_rounds[golfer_name]
+
             round_data = golfer_tournament_details["CurrentRound"] if "CurrentRound" in golfer_tournament_details else {}
 
             new_round_data = parse_golfer_rounds(driver, row, golfer_overview_data, tournament["Par"], current_round_num, round_data)
@@ -86,16 +89,13 @@ def scrape_ongoing_tournament(driver, leaderboard, tournament, specific_golfers=
 
             if golfer_overview_data["Today"] == 0 and "Score" in new_round_data:
                 golfer_overview_data["Today"] = new_round_data["Score"]
-            
-            golfer_tournament_details["Score"] = 0 if golfer_tournament_details[""]
-            golfer_overview_data["Score"] = golfer_overview_data["Score"]
 
-            golfer_overview_data["Rounds"].append(new_round_data)
+            golfer_overview_data.setdefault("NewRounds", []).append(new_round_data)
 
             golfer_tourney_details_dict = dict(golfer_tournament_details)
             golfer_tourney_details_dict.update(golfer_overview_data)
 
-            golfers.append(golfer_overview_data)
+            golfers.append(golfer_tourney_details_dict)
 
     return golfers
 
@@ -124,7 +124,7 @@ def query_golfers_without_rounds(tournament_id, current_round_num):
                 "from": "rounds",  # Assuming the "rounds" collection name
                 "localField": "_id",
                 "foreignField": "GolferTournamentDetailsId",
-                "as": "Rounds"
+                "as": "FullRounds"
             }
         },
         {
@@ -133,7 +133,7 @@ def query_golfers_without_rounds(tournament_id, current_round_num):
                     "$arrayElemAt": [
                         {
                             "$filter": {
-                                "input": "$Rounds",
+                                "input": "$FullRounds",
                                 "as": "round",
                                 "cond": {
                                     "$eq": ["$$round.Round", current_round_num]
@@ -149,7 +149,7 @@ def query_golfers_without_rounds(tournament_id, current_round_num):
             "$match": {
                 "$or": [
                     {"CurrentRound": None},  # Golfers with no round for the current round number
-                    {"Rounds": {"$eq": []}},  # Golfers with no rounds at all
+                    {"FullRounds": {"$eq": []}},  # Golfers with no rounds at all
                     {
                         "$and": [
                             {"CurrentRound": {"$ne": None}},  # Golfers with a round for the current round number
@@ -161,9 +161,9 @@ def query_golfers_without_rounds(tournament_id, current_round_num):
         },
         {
             "$project": {
-                "Rounds": 0,  # Exclude the full Rounds array if not needed
-            }
+                "FullRounds": 0,  # Exclude full Rounds array
         }
+    }
     ]
 
     incomplete_golfers = list(db.golfertournamentdetails.aggregate(pipeline))
@@ -192,7 +192,14 @@ def parse_golfer_rounds(driver, row, golfer_data, par, round_text, existing_roun
 
         # Navigate to the specific round
         select.select_by_visible_text(round_text)
-        round_detail = parse_round_details(player_detail, round_text, golfer_data["WD"], par)
+
+        existing_holes = set()
+
+        if "Holes" in existing_round:
+            for hole in existing_round["Holes"]:
+                existing_holes.add(hole["HoleNumber"])
+
+        round_detail = parse_round_details(player_detail, round_text, golfer_data["WD"], par, existing_holes)
         
         if bool(existing_round):
             merged_round = dict(existing_round)  # Convert existing_round to a dictionary if not already
@@ -217,7 +224,6 @@ def extract_golfer_overview(row, mapped_headers, table_headers_equivalents, curr
     # Initialize golfer results with default values
     golfer_tournament_results = {
         "Position": None,
-        "Name": None,
         "Score": 0,
         "Today": 0,
         "Thru": 0,
@@ -228,18 +234,9 @@ def extract_golfer_overview(row, mapped_headers, table_headers_equivalents, curr
         "TotalStrokes": None,
         "Earnings": None,
         "FedexPts": None,
-        "Rounds": [],
         "WD": False,
         "Cut": False
     }
-
-    # Extract golfer name
-    try:
-        golfer_full_name = row.find_element(By.CSS_SELECTOR, "a.AnchorLink").text.split(' ')
-        golfer_tournament_results["Name"] = f"{golfer_full_name[0]} {' '.join(golfer_full_name[1:])}"
-    except Exception as e:
-        print(f"Error extracting golfer name: {e}")
-        return
 
     # Extract table row data
     row_data = row.find_elements(By.CSS_SELECTOR, "td.Table__TD")
@@ -258,7 +255,7 @@ def extract_golfer_overview(row, mapped_headers, table_headers_equivalents, curr
                     golfer_tournament_results["Cut"] = True
                     golfer_tournament_results["WD"] = False
                 else:
-                    golfer_tournament_results["Score"] = value
+                    golfer_tournament_results["Score"] = 0 if value == "E" else int(value)
             elif equivalent_key == "Earnings":
                 # Parse numeric earnings
                 golfer_tournament_results["Earnings"] = ''.join(re.findall(r'(\d+)', value)) if value else None
@@ -354,12 +351,6 @@ def main():
 
     driver = wd
 
-        # Define the current date
-    current_date = datetime.now()
-
-    # Calculate the date 4 days from now
-    four_days_from_now = datetime.utcnow() + timedelta(days=4)
-
     # Query to find tournaments ending in less than 4 days
     in_progress_tournaments = db.tournaments.find({
         "InProgress": True # Ensure the tournament is still in progress
@@ -399,81 +390,90 @@ def process_golfer_data(golfers, tournament_id):
                 "LastName": {"$regex": f"^{last_name}$", "$options": "i"}
             })
 
-        rounds = golfer_data.pop("Rounds")
+        rounds = golfer_data.pop("NewRounds")
 
-        if not golfer and "GolferId" not in golfer_data:
-            golfer_name = golfer_data["Name"]
-            print(f"Could not find {golfer_name}.")
-            continue
-        
-        golfer_details_id = ObjectId() if "_id" not in golfer_data else golfer_data["_id"]
-        if "_id" not in golfer_data:
-            print("I do not see a golfer details id")
-            # Create an instance of GolferTournamentDetails
-            golfer_details = GolferTournamentDetails(
-                _id=golfer_details_id,
-                GolferId=golfer["_id"],
-                Position=golfer_data.get("Position"),
-                Name=golfer_data.get("Name"),
-                Score=golfer_data.get("Score"),
-                R1=golfer_data.get("R1"),
-                R2=golfer_data.get("R2"),
-                R3=golfer_data.get("R3"),
-                R4=golfer_data.get("R4"),
-                TotalStrokes=golfer_data.get("TotalStrokes"),
-                Earnings=golfer_data.get("Earnings"),
-                FedexPts=golfer_data.get("FedexPts"),
-                TournamentId=tournament_id,
-                Rounds=[],
-                Cut=golfer_data.get("Cut"),
-                WD=golfer_data.get("WD"),
-                Today=golfer_data.get("Today"),
-                Thru=golfer_data.get("Thru")
-            )
+        try: 
+            golfer_details_id = ObjectId() if "_id" not in golfer_data else golfer_data["_id"]
+            if "_id" not in golfer_data:
+                # Create an instance of GolferTournamentDetails
+                golfer_details = GolferTournamentDetails(
+                    _id=golfer_details_id,
+                    GolferId=golfer["_id"],
+                    Position=golfer_data.get("Position"),
+                    Name=golfer_data.get("Name"),
+                    Score=golfer_data.get("Score"),
+                    R1=golfer_data.get("R1"),
+                    R2=golfer_data.get("R2"),
+                    R3=golfer_data.get("R3"),
+                    R4=golfer_data.get("R4"),
+                    TotalStrokes=golfer_data.get("TotalStrokes"),
+                    Earnings=golfer_data.get("Earnings"),
+                    FedexPts=golfer_data.get("FedexPts"),
+                    TournamentId=tournament_id,
+                    Rounds=[],
+                    Cut=golfer_data.get("Cut"),
+                    WD=golfer_data.get("WD"),
+                    Today=golfer_data.get("Today"),
+                    Thru=golfer_data.get("Thru")
+                )
 
-            golfer_details_dict = golfer_details.dict(by_alias=True, exclude_unset=True)
-        else:
-            golfer_details_dict = golfer_data
+                golfer_details_dict = golfer_details.dict(by_alias=True, exclude_unset=True)
+            else:
+                golfer_details_dict = golfer_data
 
-        round_ids = []
-        if rounds:
-            for round_data in rounds:
-                round_id = ObjectId if "_id" not in round_data else round_data["_id"]
-                if "_id" not in round_data:
-                    # Create an instance of Round
-                    round_instance = Round(
-                        _id=round_id,
-                        GolferTournamentDetailsId=golfer_details_id,
-                        Round=round_data.get("Round"),
-                        Birdies=round_data.get("Birdies"),
-                        Eagles=round_data.get("Eagles"),
-                        Pars=round_data.get("Pars"),
-                        Albatross=round_data.get("Albatross"),
-                        Bogeys=round_data.get("Bogeys"),
-                        DoubleBogeys=round_data.get("DoubleBogeys"),
-                        WorseThanDoubleBogeys=round_data.get("WorseThanDoubleBogeys"),
-                        Score=round_data.get("Score"),
-                        TournamentId=tournament_id,
-                        Holes=[],
-                    )
+            # Ensure rounds exist and are not just [{}]
+            if rounds and any(round_data for round_data in rounds if round_data): 
+                for round_data in rounds:
+                    if not round_data:  # Skip empty dictionaries
+                        continue
+                    round_id = ObjectId() if "_id" not in round_data else round_data["_id"]
+                    if "_id" not in round_data:
+                        # Create an instance of Round
+                        round_instance = Round(
+                            _id=round_id,
+                            GolferTournamentDetailsId=golfer_details_id,
+                            Round=round_data.get("Round"),
+                            Birdies=round_data.get("Birdies"),
+                            Eagles=round_data.get("Eagles"),
+                            Pars=round_data.get("Pars"),
+                            Albatross=round_data.get("Albatross"),
+                            Bogeys=round_data.get("Bogeys"),
+                            DoubleBogeys=round_data.get("DoubleBogeys"),
+                            WorseThanDoubleBogeys=round_data.get("WorseThanDoubleBogeys"),
+                            Score=round_data.get("Score"),
+                            TournamentId=tournament_id,
+                            Holes=[],
+                        )
 
-                    round_dict = round_instance.dict(by_alias=True, exclude_unset=True)                  
-                else:
-                    round_dict = round_data  
+                        round_dict = round_instance.dict(by_alias=True, exclude_unset=True)                  
+                    else:
+                        round_dict = round_data  
 
-                # Validate and append round to lists
-                round_ids.append(round_id)
-                holes = process_round_data(round_data, golfer_details_id, round_id)
-                round_dict["Holes"] = [hole_dict for hole_dict in holes]
-                round_dicts.append(round_dict)
-                hole_dicts.extend(holes)
+                    golfer_details_dict["Rounds"].append(round_id)
 
-        golfer_details_dict["Rounds"] = round_ids
-        golfer_tournament_details_dicts.append(golfer_details_dict)
+                    # only creates holes that do not exist yet
+                    holes = process_round_data(round_data, golfer_details_id, round_id) 
+                    if "Holes" not in round_dict or not len(round_dict["Holes"]) > 0:
+                        round_dict["Holes"] = [hole_dict for hole_dict in holes]
+                    else:
+                        round_dict["Holes"].extend(holes)
+                    round_dicts.append(round_dict)
+                    hole_dicts.extend(holes)
 
-    print(hole_dicts[0], hole_dicts[1], hole_dicts[2])
-    print(golfer_details_dict[0], golfer_details_dict[1], golfer_details_dict[2])
+            golfer_tournament_details_dicts.append(golfer_details_dict)
+        except ValidationError as e:
+            print("\n🚨 Pydantic Validation Error! 🚨")
+            print(e.errors())  # Detailed list of validation errors
+            print("\n❌ Invalid Instance JSON:")
+            print(e.json())  # Serialized version of the invalid instance
+            
+            print("\n🔍 Raw Data Attempted for Validation:")
+            print(golfer_data)  # Print the actual input data that failed
+            print(rounds)
+    
     print(round_dicts[0])
+    print(golfer_tournament_details_dicts[0], golfer_tournament_details_dicts[1])
+    print(hole_dicts[0], hole_dicts[1], hole_dicts[2])
 
     # try:
     #     # Start a session for the transaction
@@ -481,7 +481,8 @@ def process_golfer_data(golfers, tournament_id):
     #         with db_session.start_transaction():
     #             # Insert golfer tournament details
     #             if golfer_tournament_details_dicts:
-    #                 db.golfertournamentdetails.insert_many(golfer_tournament_details_dicts, session=db_session)
+    #                 for golfer_tournament_detail in golfer_tournament_details_dicts:
+    #                     db.golfertournamentdetails.insert_many(golfer_tournament_details_dicts, session=db_session)
 
     #             # Insert rounds
     #             if round_dicts:

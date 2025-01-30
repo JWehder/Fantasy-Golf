@@ -6,6 +6,11 @@ export interface GolferTournamentDetailsResponse {
     details: GolferTournamentDetails[];
 }
 
+export interface TournamentGolferTournamentDetailsResponse {
+    details: GolferTournamentDetails[];
+    roundsExist: boolean;
+}
+
 const fetchGolferTournamentDetails = async (golferId: string) => {
     const response = await axios.get(`/api/golfers/${golferId}/tournament-details`);
     return response.data;
@@ -25,7 +30,7 @@ const fetchAllGolfersTournamentDetails = async (tournamentId: string) => {
 };
 
 export const useFetchAllTournamentDetails = (tournamentId?: string) => {
-    return useQuery<GolferTournamentDetailsResponse>({
+    return useQuery<TournamentGolferTournamentDetailsResponse>({
         queryKey: ['golfersTournamentDetails', tournamentId],
         queryFn: () => fetchAllGolfersTournamentDetails(tournamentId!),
         enabled: !!tournamentId // Only enable query if tournamentId is valid

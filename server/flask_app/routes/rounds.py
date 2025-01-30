@@ -22,3 +22,23 @@ def get_round(round_id):
             fetched_round
         })
     return abort(404, description="Round not found")
+
+@rounds_bp.route('/rounds/<golfer_tournament_details_id>', methods=['GET'])
+def get_round(golfer_tournament_details_id):
+    """Fetches a round by ID"""
+    try: 
+        rounds = rounds_collection.find({"GolferTournamentDetailsId": ObjectId(golfer_tournament_details_id)})
+
+        if not rounds:
+            return jsonify({"error": "Sorry, we could not find the rounds you are looking for."}), 404
+
+        if rounds:
+                    
+            # append the actual round results rather than just the id
+            rounds_dicts = [(Round(**_round)).to_dict() for _round in rounds]
+
+            return jsonify({
+                "rounds": rounds_dicts
+            })
+    except Exception as e:
+        return jsonify({f"error": "Sorry there was an error: {e}"})

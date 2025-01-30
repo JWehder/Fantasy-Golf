@@ -13,6 +13,7 @@ import pytz
 import sys
 from create_missing_golfers_from_tournament_scraper import scrape_tournament_golfers
 from datetime import datetime, timedelta
+from bson.objectid import ObjectId
 
 # Adjust the paths for MacOS
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -59,12 +60,7 @@ def determine_score_from_rounds(rounds: list):
     for r in rounds:
         score_total += r["Score"]
 
-    if score_total > 0:
-        return "+" + str(score_total)
-    elif score_total == 0:
-        return "E"
-    else:
-        return str(score_total)
+    return score_total
 
 def determine_score_from_holes(holes: list):
 
@@ -200,7 +196,10 @@ def parse_leaderboard(par, leaderboard, driver, specific_golfers=[]):
 
     return golfers
 
-def parse_round_details(player_detail, round_text, wd_bool, par):
+def parse_round_details(player_detail, round_text, wd_bool, par, existing_holes = None):
+    if existing_holes is None:
+        existing_holes = set()
+
     round_detail = {
         "Round": round_text,
         "Birdies": 0,
@@ -253,7 +252,7 @@ def parse_round_details(player_detail, round_text, wd_bool, par):
 
     # Process each hole
     for i, (strokes, par_score, net_score) in enumerate(zip(hole_strokes, par_scores, net_scores), start=1):
-        if np.isnan(strokes) or np.isnan(par_score):
+        if np.isnan(strokes) or np.isnan(par_score) or i in existing_holes:
             continue
         else:
             score = int(net_score)
@@ -535,45 +534,53 @@ def get_tournament_data(schedule_link: str):
         print(tourney_header_data)
 
 def parse_tee_time_leaderboard(leaderboard, tournament_id):
+    import re
+    from datetime import datetime
+
     leaderboard_rows = leaderboard.find_elements(By.CSS_SELECTOR, "tr.PlayerRow__Overview")
-    
+
+    golfer_tournament_results = [] 
+
     for leaderboard_row in leaderboard_rows:
+        print(leaderboard_row.text)
 
-        golfer_full_name = leaderboard_row.find_element(By.CSS_SELECTOR, "a.AnchorLink.leaderboard_player_name").text.split(' ')
-        golfer_parsed_name = f"{golfer_full_name[0]} {' '.join(golfer_full_name[1:])}"
+        golfer_full_name = leaderboard_row.find_element(By.CSS_SELECTOR, "a.AnchorLink.leaderboard_player_name").text
 
-        # get the tee time for the value
-        golfer_tee_time_str = leaderboard_row.find_element(By.CSS_SELECTOR, "td.tc.Table__TD").text
+        # Extract and clean the tee time string
+        golfer_tee_time_str = leaderboard_row.find_element(By.CSS_SELECTOR, "td.tc.Table__TD").text.strip()
 
-        golfer_tournament_results = db.golfertournamentdetails.find_one({
+        # Remove unwanted characters (* or others)
+        cleaned_tee_time_str = re.sub(r"[^0-9APM: ]", "", golfer_tee_time_str)
+
+        # Parse as a datetime object (defaults to today's date)
+        tee_time = datetime.strptime(cleaned_tee_time_str, "%I:%M %p")
+
+        print(golfer_full_name)
+
+        golfer_data = {
+            "Position": None,
+            "Name": golfer_full_name,
+            "Score": 0,
+            "R1": 0,
+            "R2": 0,
+            "R3": 0,
+            "R4": 0,
+            "TotalStrokes": 0,
+            "Earnings": None,
+            "FedexPts": None,
+            "Rounds": [],
+            "WD": False,
+            "Cut": False,
             "TournamentId": tournament_id,
-            "Name": golfer_parsed_name
-        })
-
-        if not golfer_tournament_results:
-            golfer_tournament_results = {
-                "Position": None,
-                "Name": None,
-                "Score": 0,
-                "R1": 0,
-                "R2": 0,
-                "R3": 0,
-                "R4": 0,
-                "TotalStrokes": None,
-                "Earnings": None,
-                "FedexPts": None,
-                "Rounds": [],
-                "WD": False,
-                "Cut": False,
-                "TeeTimes": {}
+            "TeeTimes": {
+                "Round 1": tee_time
             }
-        else:
-            # need to add a tee time based on the current round
-            # db.golfertournamentdetails.update_one(
-            #     {"_id": golfer_tournament_results["_id"]},
-            #     {"$set": {"TeeTimes"}}
-            # )
-            pass
+        }
+
+        golfer_tournament_results.append(golfer_data)
+
+    return golfer_tournament_results
+
 
 if __name__ == "__main__":
 
@@ -584,9 +591,8 @@ if __name__ == "__main__":
     four_days_from_now = datetime.utcnow() + timedelta(days=4)
 
     # Query to find tournaments ending in less than 4 days
-    in_progress_tournaments = db.tournaments.find({
-        "InProgress": True,  # Ensure the tournament is still in progress
-        "EndDate": {"$lte": four_days_from_now}  # End date within the next 4 days
+    tournament = db.tournaments.find_one({
+        "_id": ObjectId('6631732e74d57119dcdd0a22')
     })
 
     options = Options()
@@ -602,10 +608,7 @@ if __name__ == "__main__":
 
     driver = wd
 
-    for tournament in in_progress_tournaments:
-        # Remove "details" before updating the document
-        tournament.pop("details", None)
-
+    if tournament: 
         scrape_tournament_golfers(tournament["Links"][0])
 
         # Load page
@@ -630,23 +633,30 @@ if __name__ == "__main__":
                 {"_id": tournament["_id"]},  # Filter by the tournament ID
                 {"$set": tournament}          # Update the tournament document with new values
             )
+        tournament_dict = dict(tournament)
         
         try:
             # Attempt to locate the competitors table
             competitors_table = driver.find_element(By.CSS_SELECTOR, "div.competitors")
             responsive_tables = competitors_table.find_elements(By.CSS_SELECTOR, "div.ResponsiveTable")
 
-            tournament_dict = dict(tournament)
+            # determine the amount of headers within the responsive table
+            table_headers = responsive_tables[-1].find_elements(By.CSS_SELECTOR, "th")
 
-            # Parse the leaderboard using the last responsive table
-            tournament_dict["Golfers"] = parse_leaderboard(
-                tournament_dict["Par"], responsive_tables[-1], driver
-            )
+            # test if it's a legit scoreboard if it's before the tourney and they are just showing tee times.
+            if len(table_headers) <= 3:
+                # Handle the ongoing tournament case
+                golfer_tournament_results = parse_tee_time_leaderboard(responsive_tables[-1], tournament["_id"])
+                tournament_dict["Golfers"] = golfer_tournament_results
+                print(tournament_dict["Golfers"])
+            else:
 
+                # Parse the leaderboard using the last responsive table
+                tournament_dict["Golfers"] = parse_leaderboard(
+                    tournament_dict["Par"], responsive_tables[-1], driver
+                )
+            
             handle_golfer_data(tournament_dict, tournament["_id"])
-
-            # Handle the ongoing tournament case
-            # parse_tee_time_leaderboard(responsive_tables, tournament["_id"])
                 
         except NoSuchElementException as e:
             print(f"Required element not found on the page: {e}")
